@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blinkit Daily Update — 05 Apr 2026</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+  .header { background: linear-gradient(135deg, #1a1f2e 0%, #0f1117 100%); border-bottom: 1px solid #2d3748; padding: 24px 32px; display: flex; align-items: center; justify-content: space-between; }
+  .header-left h1 { font-size: 20px; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
+  .header-left p { font-size: 13px; color: #718096; margin-top: 3px; }
+  .badge { background: #1a3a4a; color: #63b3ed; border: 1px solid #2c5f7a; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .platform-badge { background: #f97316; color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; margin-right: 8px; letter-spacing: 0.3px; }
+  .main { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+  .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; }
+  .brand-card { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 12px; padding: 20px; }
+  .brand-card .brand-name { font-size: 13px; font-weight: 600; color: #a0aec0; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .brand-card .rev { font-size: 26px; font-weight: 700; color: #fff; }
+  .brand-card .growth { font-size: 13px; font-weight: 600; margin-top: 4px; }
+  .brand-card .meta { display: flex; gap: 16px; margin-top: 12px; }
+  .brand-card .meta-label { font-size: 11px; color: #718096; }
+  .brand-card .meta-value { font-size: 14px; font-weight: 600; color: #e2e8f0; }
+  .brand-card .ach-bar { height: 4px; background: #2d3748; border-radius: 2px; margin-top: 14px; overflow: hidden; }
+  .brand-card .ach-fill { height: 100%; border-radius: 2px; }
+  .bb-card { border-left: 3px solid #63b3ed; }
+  .lj-card { border-left: 3px solid #68d391; }
+  .mm-card { border-left: 3px solid #f6ad55; }
+  .section { margin-bottom: 28px; }
+  .section-title { font-size: 13px; font-weight: 700; color: #a0aec0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: #2d3748; }
+  .table-wrap { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 12px; overflow: hidden; margin-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  thead tr { background: #141820; }
+  thead th { padding: 10px 14px; text-align: right; font-weight: 600; color: #718096; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #2d3748; white-space: nowrap; }
+  thead th:first-child, thead th:nth-child(2) { text-align: left; }
+  tbody tr { border-bottom: 1px solid #1e2535; transition: background 0.15s; }
+  tbody tr:hover { background: #1e2535; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody td { padding: 9px 14px; text-align: right; color: #cbd5e0; white-space: nowrap; }
+  tbody td:first-child { text-align: left; font-weight: 500; color: #e2e8f0; }
+  tbody td:nth-child(2) { text-align: left; color: #a0aec0; }
+  .row-total-bb { background: #1a2a3a !important; }
+  .row-total-bb td { color: #90cdf4 !important; font-weight: 700; }
+  .row-total-lj { background: #1a2e24 !important; }
+  .row-total-lj td { color: #9ae6b4 !important; font-weight: 700; }
+  .row-total-mm { background: #2a2620 !important; }
+  .row-total-mm td { color: #fbd38d !important; font-weight: 700; }
+  .row-grand { background: #282218 !important; }
+  .row-grand td { color: #f6e05e !important; font-weight: 700; }
+  .pos { color: #68d391 !important; }
+  .neg { color: #fc8181 !important; }
+  .ach-great { color: #68d391 !important; font-weight: 700; }
+  .ach-ok { color: #f6ad55 !important; font-weight: 700; }
+  .ach-bad { color: #fc8181 !important; font-weight: 700; }
+  .chip-bb { background: #1a3a5a; color: #63b3ed; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .chip-lj { background: #1a3a2a; color: #68d391; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .chip-mm { background: #3a2a10; color: #f6ad55; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .footer { text-align: center; padding: 24px; color: #4a5568; font-size: 11px; border-top: 1px solid #2d3748; margin-top: 12px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-left">
+    <h1><span class="platform-badge">BLINKIT</span> Daily Performance Update</h1>
+    <p>📅 05 April 2026 &nbsp;·&nbsp; April MTD &nbsp;·&nbsp; Be Bodywise · Little Joys · Man Matters</p>
+  </div>
+  <div class="badge">Auto-report · Daily Reporting QC</div>
+</div>
+<div class="main">
+  <div class="summary-grid">
+    <div class="brand-card bb-card">
+      <div class="brand-name">Be Bodywise</div>
+      <div class="rev">₹11.4L <span style="font-size:13px;font-weight:400;color:#718096;">/ day MTD</span></div>
+      <div class="growth pos">↑ 13.7% vs Mar DRR</div>
+      <div class="meta">
+        <div class="meta-item"><div class="meta-label">Units MTD DRR</div><div class="meta-value">4,843</div></div>
+        <div class="meta-item"><div class="meta-label">Target Ach</div><div class="meta-value ach-great">100.3%</div></div>
+        <div class="meta-item"><div class="meta-label">7D Trend</div><div class="meta-value pos">↑ 16.3%</div></div>
+      </div>
+      <div class="ach-bar"><div class="ach-fill" style="width:100%;background:#68d391;"></div></div>
+    </div>
+    <div class="brand-card lj-card">
+      <div class="brand-name">Little Joys</div>
+      <div class="rev">₹11.7L <span style="font-size:13px;font-weight:400;color:#718096;">/ day MTD</span></div>
+      <div class="growth pos">↑ 18.3% vs Mar DRR</div>
+      <div class="meta">
+        <div class="meta-item"><div class="meta-label">Units MTD DRR</div><div class="meta-value">3,456</div></div>
+        <div class="meta-item"><div class="meta-label">Target Ach</div><div class="meta-value ach-great">100.0%</div></div>
+        <div class="meta-item"><div class="meta-label">7D Trend</div><div class="meta-value pos">↑ 24.4%</div></div>
+      </div>
+      <div class="ach-bar"><div class="ach-fill" style="width:100%;background:#68d391;"></div></div>
+    </div>
+    <div class="brand-card mm-card">
+      <div class="brand-name">Man Matters</div>
+      <div class="rev">₹2.3L <span style="font-size:13px;font-weight:400;color:#718096;">/ day MTD</span></div>
+      <div class="growth pos">↑ 7.7% vs Mar DRR</div>
+      <div class="meta">
+        <div class="meta-item"><div class="meta-label">Units MTD DRR</div><div class="meta-value">684</div></div>
+        <div class="meta-item"><div class="meta-label">Target Ach</div><div class="meta-value ach-bad">77.0%</div></div>
+        <div class="meta-item"><div class="meta-label">7D Trend</div><div class="meta-value pos">↑ 10.2%</div></div>
+      </div>
+      <div class="ach-bar"><div class="ach-fill" style="width:77%;background:#fc8181;"></div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">📦 Units DRR — 7-Day Trend</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Brand</th><th>Category</th><th>Prev 7D DRR</th><th>Last 7D DRR</th><th>Change %</th></tr></thead>
+      <tbody>
+        <tr><td><span class="chip-bb">BBW</span></td><td>UARO</td><td>1,508</td><td>1,797</td><td class="pos">↑ 19.2%</td></tr>
+        <tr><td></td><td>Bodywash</td><td>1,511</td><td>1,720</td><td class="pos">↑ 13.8%</td></tr>
+        <tr><td></td><td>HGS</td><td>333</td><td>401</td><td class="pos">↑ 20.4%</td></tr>
+        <tr><td></td><td>Foot Roll On</td><td>348</td><td>375</td><td class="pos">↑ 7.7%</td></tr>
+        <tr><td></td><td>Biotin</td><td>149</td><td>186</td><td class="pos">↑ 24.8%</td></tr>
+        <tr><td></td><td>Lotions</td><td>153</td><td>179</td><td class="pos">↑ 17.4%</td></tr>
+        <tr><td></td><td>Magnesium</td><td>81</td><td>92</td><td class="pos">↑ 13.7%</td></tr>
+        <tr><td></td><td>Others</td><td>4</td><td>1</td><td class="neg">↓ 65.5%</td></tr>
+        <tr class="row-total-bb"><td>Be Bodywise Total</td><td></td><td>4,087</td><td>4,752</td><td class="pos">↑ 16.3%</td></tr>
+        <tr><td><span class="chip-lj">LJ</span></td><td>NM (Milk Mix)</td><td>1,061</td><td>1,340</td><td class="pos">↑ 26.2%</td></tr>
+        <tr><td></td><td>MVG</td><td>580</td><td>718</td><td class="pos">↑ 23.9%</td></tr>
+        <tr><td></td><td>Chocolate Spreads</td><td>298</td><td>375</td><td class="pos">↑ 25.9%</td></tr>
+        <tr><td></td><td>Ketchup</td><td>409</td><td>493</td><td class="pos">↑ 20.5%</td></tr>
+        <tr><td></td><td>Jams</td><td>170</td><td>209</td><td class="pos">↑ 23.2%</td></tr>
+        <tr><td></td><td>Kids Cereals</td><td>130</td><td>158</td><td class="pos">↑ 21.1%</td></tr>
+        <tr class="row-total-lj"><td>Little Joys Total</td><td></td><td>2,648</td><td>3,293</td><td class="pos">↑ 24.4%</td></tr>
+        <tr><td><span class="chip-mm">MM</span></td><td>Shilajit</td><td>286</td><td>315</td><td class="pos">↑ 10.0%</td></tr>
+        <tr><td></td><td>Biotin</td><td>73</td><td>94</td><td class="pos">↑ 27.6%</td></tr>
+        <tr><td></td><td>Dermaroller</td><td>116</td><td>122</td><td class="pos">↑ 5.5%</td></tr>
+        <tr><td></td><td>Shampoos</td><td>41</td><td>43</td><td class="pos">↑ 6.0%</td></tr>
+        <tr><td></td><td>Creatine Powder</td><td>29</td><td>27</td><td class="neg">↓ 9.7%</td></tr>
+        <tr><td></td><td>Others</td><td>57</td><td>63</td><td class="pos">↑ 11.3%</td></tr>
+        <tr class="row-total-mm"><td>Man Matters Total</td><td></td><td>603</td><td>664</td><td class="pos">↑ 10.2%</td></tr>
+        <tr class="row-grand"><td>GRAND TOTAL</td><td></td><td>7,339</td><td>8,709</td><td class="pos">↑ 18.7%</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+  <div class="section">
+    <div class="section-title">📊 Units — MTD Performance vs Target</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Brand</th><th>Category</th><th>Mar DRR</th><th>Mar LMTD</th><th>Apr MTD DRR</th><th>Target DRR</th><th>Proj DRR</th><th>Target Ach</th><th>MTD Growth</th></tr></thead>
+      <tbody>
+        <tr><td><span class="chip-bb">BBW</span></td><td>UARO</td><td>1,606</td><td>1,512</td><td>1,868</td><td>1,757</td><td>1,810</td><td class="ach-great">103.0%</td><td class="pos">↑ 23.5%</td></tr>
+        <tr><td></td><td>Bodywash</td><td>1,467</td><td>1,418</td><td>1,722</td><td>1,672</td><td>1,744</td><td class="ach-great">104.3%</td><td class="pos">↑ 21.5%</td></tr>
+        <tr><td></td><td>HGS</td><td>390</td><td>453</td><td>392</td><td>466</td><td>337</td><td class="ach-bad">72.4%</td><td class="neg">↓ 13.6%</td></tr>
+        <tr><td></td><td>Foot Roll On</td><td>382</td><td>388</td><td>382</td><td>356</td><td>366</td><td class="ach-great">102.8%</td><td class="neg">↓ 1.4%</td></tr>
+        <tr><td></td><td>Biotin</td><td>169</td><td>176</td><td>197</td><td>179</td><td>188</td><td class="ach-great">104.9%</td><td class="pos">↑ 11.6%</td></tr>
+        <tr><td></td><td>Lotions</td><td>150</td><td>143</td><td>188</td><td>144</td><td>178</td><td class="ach-great">123.8%</td><td class="pos">↑ 31.5%</td></tr>
+        <tr><td></td><td>Magnesium</td><td>86</td><td>81</td><td>92</td><td>110</td><td>87</td><td class="ach-bad">78.8%</td><td class="pos">↑ 13.2%</td></tr>
+        <tr><td></td><td>Others</td><td>3</td><td>4</td><td>2</td><td>15</td><td>1</td><td class="ach-bad">7.3%</td><td class="neg">↓ 56.2%</td></tr>
+        <tr class="row-total-bb"><td>Be Bodywise Total</td><td></td><td>4,253</td><td>4,176</td><td>4,843</td><td>4,699</td><td>4,711</td><td class="ach-great">100.3%</td><td class="pos">↑ 16.0%</td></tr>
+        <tr><td><span class="chip-lj">LJ</span></td><td>NM (Milk Mix)</td><td>1,082</td><td>1,018</td><td>1,415</td><td>1,121</td><td>1,314</td><td class="ach-great">117.1%</td><td class="pos">↑ 39.1%</td></tr>
+        <tr><td></td><td>MVG</td><td>671</td><td>664</td><td>762</td><td>794</td><td>745</td><td class="ach-ok">93.7%</td><td class="pos">↑ 14.8%</td></tr>
+        <tr><td></td><td>Chocolate Spreads</td><td>384</td><td>414</td><td>393</td><td>432</td><td>364</td><td class="ach-bad">84.3%</td><td class="neg">↓ 5.2%</td></tr>
+        <tr><td></td><td>Ketchup</td><td>428</td><td>404</td><td>512</td><td>540</td><td>493</td><td class="ach-ok">91.3%</td><td class="pos">↑ 26.6%</td></tr>
+        <tr><td></td><td>Jams</td><td>190</td><td>186</td><td>215</td><td>231</td><td>206</td><td class="ach-bad">89.0%</td><td class="pos">↑ 16.0%</td></tr>
+        <tr><td></td><td>Kids Cereals</td><td>134</td><td>110</td><td>158</td><td>156</td><td>152</td><td class="ach-ok">97.5%</td><td class="pos">↑ 43.3%</td></tr>
+        <tr class="row-total-lj"><td>Little Joys Total</td><td></td><td>2,889</td><td>2,796</td><td>3,456</td><td>3,275</td><td>3,274</td><td class="ach-great">100.0%</td><td class="pos">↑ 23.6%</td></tr>
+        <tr><td><span class="chip-mm">MM</span></td><td>Shilajit</td><td>314</td><td>302</td><td>322</td><td>351</td><td>312</td><td class="ach-bad">88.9%</td><td class="pos">↑ 6.6%</td></tr>
+        <tr><td></td><td>Biotin</td><td>81</td><td>84</td><td>102</td><td>71</td><td>96</td><td class="ach-great">135.9%</td><td class="pos">↑ 21.4%</td></tr>
+        <tr><td></td><td>Dermaroller</td><td>121</td><td>123</td><td>125</td><td>281</td><td>119</td><td class="ach-bad">42.5%</td><td class="pos">↑ 1.2%</td></tr>
+        <tr><td></td><td>Shampoos</td><td>39</td><td>44</td><td>43</td><td>34</td><td>39</td><td class="ach-great">114.6%</td><td class="neg">↓ 1.7%</td></tr>
+        <tr><td></td><td>Creatine Powder</td><td>21</td><td>13</td><td>24</td><td>29</td><td>26</td><td class="ach-bad">89.6%</td><td class="pos">↑ 92.2%</td></tr>
+        <tr><td></td><td>Others</td><td>60</td><td>62</td><td>68</td><td>87</td><td>64</td><td class="ach-bad">74.4%</td><td class="pos">↑ 8.9%</td></tr>
+        <tr class="row-total-mm"><td>Man Matters Total</td><td></td><td>637</td><td>628</td><td>684</td><td>851</td><td>656</td><td class="ach-bad">77.0%</td><td class="pos">↑ 8.9%</td></tr>
+        <tr class="row-grand"><td>GRAND TOTAL</td><td></td><td>7,779</td><td>7,600</td><td>8,983</td><td>16,800</td><td>16,625</td><td class="ach-ok">99.0%</td><td class="pos">↑ 18.2%</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+  <div class="section">
+    <div class="section-title">💰 Net Revenue — MTD Performance vs Target</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Brand</th><th>Category</th><th>Mar DRR</th><th>Mar LMTD</th><th>Apr MTD DRR</th><th>Target DRR</th><th>Proj DRR</th><th>Target Ach</th><th>MTD Growth</th></tr></thead>
+      <tbody>
+        <tr><td><span class="chip-bb">BBW</span></td><td>UARO</td><td>₹320.6K</td><td>₹303.3K</td><td>₹370.0K</td><td>₹343.7K</td><td>₹358.5K</td><td class="ach-great">104.3%</td><td class="pos">↑ 22.0%</td></tr>
+        <tr><td></td><td>Bodywash</td><td>₹326.9K</td><td>₹312.8K</td><td>₹384.2K</td><td>₹363.4K</td><td>₹388.9K</td><td class="ach-great">107.0%</td><td class="pos">↑ 22.8%</td></tr>
+        <tr><td></td><td>HGS</td><td>₹142.7K</td><td>₹165.0K</td><td>₹142.9K</td><td>₹170.8K</td><td>₹123.0K</td><td class="ach-bad">72.0%</td><td class="neg">↓ 13.4%</td></tr>
+        <tr><td></td><td>Foot Roll On</td><td>₹92.8K</td><td>₹94.1K</td><td>₹93.2K</td><td>₹84.2K</td><td>₹89.1K</td><td class="ach-great">105.9%</td><td class="neg">↓ 0.9%</td></tr>
+        <tr><td></td><td>Biotin</td><td>₹64.2K</td><td>₹67.0K</td><td>₹74.8K</td><td>₹69.5K</td><td>₹71.6K</td><td class="ach-great">103.0%</td><td class="pos">↑ 11.7%</td></tr>
+        <tr><td></td><td>Lotions</td><td>₹37.3K</td><td>₹35.2K</td><td>₹48.0K</td><td>₹37.3K</td><td>₹45.6K</td><td class="ach-great">122.4%</td><td class="pos">↑ 36.2%</td></tr>
+        <tr><td></td><td>Magnesium</td><td>₹25.4K</td><td>₹23.2K</td><td>₹26.0K</td><td>₹31.4K</td><td>₹24.5K</td><td class="ach-bad">78.2%</td><td class="pos">↑ 12.2%</td></tr>
+        <tr><td></td><td>Others</td><td>₹1.2K</td><td>₹1.5K</td><td>₹0.6K</td><td>₹1.3K</td><td>₹0.4K</td><td class="ach-bad">28.7%</td><td class="neg">↓ 61.6%</td></tr>
+        <tr class="row-total-bb"><td>Be Bodywise Total</td><td></td><td>₹1,011.2K</td><td>₹1,002.2K</td><td>₹1,139.7K</td><td>₹1,101.5K</td><td>₹1,101.6K</td><td class="ach-great">100.0%</td><td class="pos">↑ 13.7%</td></tr>
+        <tr><td><span class="chip-lj">LJ</span></td><td>NM (Milk Mix)</td><td>₹499.5K</td><td>₹475.2K</td><td>₹611.2K</td><td>₹513.3K</td><td>₹567.3K</td><td class="ach-great">110.5%</td><td class="pos">↑ 28.6%</td></tr>
+        <tr><td></td><td>MVG</td><td>₹228.1K</td><td>₹225.6K</td><td>₹258.2K</td><td>₹270.0K</td><td>₹252.4K</td><td class="ach-ok">93.5%</td><td class="pos">↑ 14.5%</td></tr>
+        <tr><td></td><td>Chocolate Spreads</td><td>₹118.5K</td><td>₹128.0K</td><td>₹121.0K</td><td>₹133.3K</td><td>₹112.0K</td><td class="ach-bad">84.0%</td><td class="neg">↓ 5.5%</td></tr>
+        <tr><td></td><td>Ketchup</td><td>₹102.8K</td><td>₹100.0K</td><td>₹104.2K</td><td>₹126.7K</td><td>₹100.4K</td><td class="ach-bad">79.2%</td><td class="pos">↑ 4.2%</td></tr>
+        <tr><td></td><td>Jams</td><td>₹40.9K</td><td>₹40.1K</td><td>₹46.5K</td><td>₹50.0K</td><td>₹44.4K</td><td class="ach-bad">88.9%</td><td class="pos">↑ 16.0%</td></tr>
+        <tr><td></td><td>Kids Cereals</td><td>₹27.3K</td><td>₹22.6K</td><td>₹32.2K</td><td>₹33.3K</td><td>₹31.0K</td><td class="ach-ok">93.0%</td><td class="pos">↑ 42.0%</td></tr>
+        <tr class="row-total-lj"><td>Little Joys Total</td><td></td><td>₹1,017.2K</td><td>₹991.5K</td><td>₹1,173.3K</td><td>₹1,126.7K</td><td>₹1,107.5K</td><td class="ach-ok">98.3%</td><td class="pos">↑ 18.3%</td></tr>
+        <tr><td><span class="chip-mm">MM</span></td><td>Shilajit</td><td>₹142.0K</td><td>₹135.0K</td><td>₹145.5K</td><td>₹157.7K</td><td>₹140.8K</td><td class="ach-bad">89.3%</td><td class="pos">↑ 7.8%</td></tr>
+        <tr><td></td><td>Biotin</td><td>₹27.6K</td><td>₹28.6K</td><td>₹34.8K</td><td>₹24.0K</td><td>₹32.6K</td><td class="ach-great">135.9%</td><td class="pos">↑ 21.4%</td></tr>
+        <tr><td></td><td>Dermaroller</td><td>₹20.6K</td><td>₹21.1K</td><td>₹21.3K</td><td>₹48.1K</td><td>₹20.4K</td><td class="ach-bad">42.5%</td><td class="pos">↑ 1.2%</td></tr>
+        <tr><td></td><td>Shampoos</td><td>₹10.9K</td><td>₹12.6K</td><td>₹11.1K</td><td>₹8.0K</td><td>₹10.0K</td><td class="ach-great">125.7%</td><td class="neg">↓ 12.2%</td></tr>
+        <tr><td></td><td>Creatine Powder</td><td>₹8.0K</td><td>₹5.0K</td><td>₹8.7K</td><td>₹6.3K</td><td>₹9.2K</td><td class="ach-great">145.6%</td><td class="pos">↑ 75.3%</td></tr>
+        <tr><td></td><td>Others</td><td>₹10.3K</td><td>₹12.6K</td><td>₹10.0K</td><td>₹15.7K</td><td>₹9.5K</td><td class="ach-bad">60.5%</td><td class="neg">↓ 20.7%</td></tr>
+        <tr class="row-total-mm"><td>Man Matters Total</td><td></td><td>₹219.5K</td><td>₹214.9K</td><td>₹231.4K</td><td>₹259.8K</td><td>₹222.5K</td><td class="ach-bad">85.7%</td><td class="pos">↑ 7.7%</td></tr>
+        <tr class="row-grand"><td>GRAND TOTAL</td><td></td><td>₹2,247.9K</td><td>₹2,208.6K</td><td>₹2,544.4K</td><td>₹4,716.1K</td><td>₹4,640.9K</td><td class="ach-ok">98.4%</td><td class="pos">↑ 15.2%</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</div>
+<div class="footer">Auto-generated from Daily Reporting QC · Blinkit BK · Mosaic Wellness · 05 Apr 2026</div>
+</body>
+</html>

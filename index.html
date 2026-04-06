@@ -97,6 +97,7 @@ iframe#email-preview{width:100%;border:none;height:520px;display:block}
 .schedule-info{background:#0f1f0f;border:1px solid #2ea043;border-radius:8px;padding:12px 16px;font-size:11px;color:#7ee787;margin-top:14px}
 .schedule-info b{color:#3fb950}
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -656,21 +657,84 @@ function renderEmailTab() {
   iframe.srcdoc = emailHTML;
 }
 
-function createEmailDraft() {
-  const TO = 'anshul.bhatkar@mosaicwellness.in,sudarshan.balaraman@mosaicwellness.in,vaibhav.joneja@mosaicwellness.in';
+// ── GMAIL API DRAFT CREATOR ─────────────────────────────────────────
+// Requires one-time Google OAuth setup. See README below.
+// SETUP: Replace GMAIL_CLIENT_ID with your OAuth 2.0 Web Client ID from
+// https://console.cloud.google.com → APIs & Services → Credentials
+// Authorised JS origin must include: https://blinkit-ads-dashboard-zj65.vercel.app
+const GMAIL_CLIENT_ID = 'YOUR_CLIENT_ID.apps.googleusercontent.com';
+
+function showToast(msg, color) {
+  const t = document.createElement('div');
+  t.style.cssText=`position:fixed;bottom:24px;right:24px;background:${color||'#238636'};color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:600;z-index:9999;box-shadow:0 4px 14px rgba(0,0,0,.4)`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 5000);
+}
+
+async function gmailCreateDraftWithToken(accessToken) {
+  const TO  = 'anshul.bhatkar@mosaicwellness.in';
+  const CC  = 'sudarshan.balaraman@mosaicwellness.in,vaibhav.joneja@mosaicwellness.in';
   const subj = document.getElementById('email-subject-preview').textContent || '📦 Blinkit Daily Update';
-  // Copy HTML to clipboard for pasting
-  const emailHTML = buildEmailHTML();
-  navigator.clipboard.writeText(emailHTML).catch(()=>{});
-  // Open Gmail compose with recipients + subject pre-filled
-  const gmailUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(TO)}&su=${encodeURIComponent(subj)}`;
-  window.open(gmailUrl, '_blank');
-  // Show toast
-  const toast = document.createElement('div');
-  toast.style.cssText='position:fixed;bottom:24px;right:24px;background:#238636;color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:600;z-index:9999;box-shadow:0 4px 14px rgba(0,0,0,.4)';
-  toast.textContent='✓ Gmail opened + HTML copied to clipboard. Paste HTML body in compose.';
-  document.body.appendChild(toast);
-  setTimeout(()=>toast.remove(), 5000);
+  const body = buildEmailHTML();
+
+  // Build RFC 2822 message
+  const msg = [
+    `To: ${TO}`,
+    `Cc: ${CC}`,
+    `Subject: ${subj}`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/html; charset=UTF-8',
+    '',
+    body
+  ].join('\r\n');
+
+  // Base64url encode
+  const encoded = btoa(unescape(encodeURIComponent(msg)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+
+  const btn = document.querySelector('.send-btn');
+  if (btn) { btn.textContent = '⏳ Creating draft...'; btn.disabled = true; }
+
+  try {
+    const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/drafts', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: { raw: encoded } })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showToast('✓ Draft created in Gmail! Open Drafts to review & send.', '#238636');
+    } else {
+      showToast('✗ Gmail API error: ' + (data.error?.message || 'Unknown'), '#c53030');
+    }
+  } catch(e) {
+    showToast('✗ Network error: ' + e.message, '#c53030');
+  } finally {
+    if (btn) { btn.textContent = '📬 Create Gmail Draft'; btn.disabled = false; }
+  }
+}
+
+function createEmailDraft() {
+  if (GMAIL_CLIENT_ID === 'YOUR_CLIENT_ID.apps.googleusercontent.com') {
+    // Fallback: open Gmail compose (old behaviour) if not yet configured
+    const TO = 'anshul.bhatkar@mosaicwellness.in,sudarshan.balaraman@mosaicwellness.in,vaibhav.joneja@mosaicwellness.in';
+    const subj = document.getElementById('email-subject-preview').textContent || '📦 Blinkit Daily Update';
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(TO)}&su=${encodeURIComponent(subj)}`;
+    window.open(gmailUrl, '_blank');
+    showToast('⚠ Add your OAuth Client ID to enable direct draft creation.', '#975a16');
+    return;
+  }
+  // Request OAuth token (popup shown only first time; cached for session)
+  const tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GMAIL_CLIENT_ID,
+    scope: 'https://www.googleapis.com/auth/gmail.compose',
+    callback: (resp) => {
+      if (resp.error) { showToast('✗ Auth error: ' + resp.error, '#c53030'); return; }
+      gmailCreateDraftWithToken(resp.access_token);
+    }
+  });
+  tokenClient.requestAccessToken({ prompt: '' }); // '' = silent if already consented
 }
 
 // ── TAB SWITCH ─────────────────────────────────────────────────────

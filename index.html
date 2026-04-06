@@ -321,7 +321,9 @@ function buildRows(metric, tbodyId) {
       <td>${fAch(bApr,bTgt)}</td><td>${fPct(bApr,bLmtd)}</td>
     </tr>`;
 
-    Object.entries(d.categories||{}).forEach(([cat,cData]) => {
+    Object.entries(d.categories||{})
+      .sort(([,a],[,b]) => gV(b.apr,metric) - gV(a.apr,metric))
+      .forEach(([cat,cData]) => {
       const cApr=gV(cData.apr,metric), cMar=gV(cData.mar,metric), cLmtd=gLmtd(cData,metric);
       const cTgt=gV(cData.tgt,metric), cProj=gProj(cData,metric);
       const cid = bid+'_'+cat.replace(/[\s/]/g,'_');
@@ -332,7 +334,9 @@ function buildRows(metric, tbodyId) {
         <td>${fAch(cApr,cTgt)}</td><td>${fPct(cApr,cLmtd)}</td>
       </tr>`;
 
-      Object.entries(cData.subcats||{}).forEach(([sub,sData]) => {
+      Object.entries(cData.subcats||{})
+        .sort(([,a],[,b]) => gV(b.apr,metric) - gV(a.apr,metric))
+        .forEach(([sub,sData]) => {
         const sApr=gV(sData.apr,metric), sMar=gV(sData.mar,metric), sLmtd=gLmtd(sData,metric);
         const sTgt=gV(sData.tgt,metric), sProj=gProj(sData,metric);
         const sid = cid+'_'+sub.replace(/[\s/]/g,'_');
@@ -343,7 +347,9 @@ function buildRows(metric, tbodyId) {
           <td>${fAch(sApr,sTgt)}</td><td>${fPct(sApr,sLmtd)}</td>
         </tr>`;
 
-        (sData.products||[]).forEach(prod => {
+        (sData.products||[])
+          .slice().sort((a,b) => gV(b.apr,metric) - gV(a.apr,metric))
+          .forEach(prod => {
           const pApr=gV(prod.apr,metric), pMar=gV(prod.mar,metric), pLmtd=gLmtd(prod,metric);
           const pProj=gProj(prod,metric);
           tbody.innerHTML += `<tr class="row-prod prod-row sub-${sid}">
@@ -517,35 +523,78 @@ function buildEmailHTML() {
     </td>`;
   }).join('');
 
-  // Parts 2-4 — Metric Tables
+  // Parts 2-4 — Metric Tables (Brand > Category > SubCat)
   function metricTable(label, metricKey, formatFn) {
     let rows = '';
+    const BRAND_BG = {'Be Bodywise':'#ebf8ff','Little Joys':'#f0fff4','Man Matters':'#fffaf0'};
+    const BRAND_BD = {'Be Bodywise':'#bee3f8','Little Joys':'#9ae6b4','Man Matters':'#fbd38d'};
     brands.forEach(brand => {
       const d = h[brand]; if(!d) return;
-      const apr=gV(d.apr,metricKey), mar=gV(d.mar,metricKey), lmtd=gLmtd(d,metricKey);
-      const tgt=gV(d.tgt,metricKey), proj=gProj(d,metricKey);
-      const achPct = tgt>0?(apr/tgt*100).toFixed(1):'–';
+      const bApr=gV(d.apr,metricKey), bMar=gV(d.mar,metricKey), bLmtd=gLmtd(d,metricKey);
+      const bTgt=gV(d.tgt,metricKey), bProj=gProj(d,metricKey);
+      const achPct = bTgt>0?(bApr/bTgt*100).toFixed(1):'–';
       const achColor = parseFloat(achPct)>=100?'#276749':parseFloat(achPct)>=90?'#975a16':'#c53030';
-      const mtdG = lmtd>0?((apr-lmtd)/lmtd*100).toFixed(1):0;
-      rows += `<tr style="border-bottom:1px solid #e2e8f0">
-        <td style="padding:7px 10px;font-weight:600;color:#2d3748">${brand}</td>
-        <td style="padding:7px 10px;text-align:right">${formatFn(mar)}</td>
-        <td style="padding:7px 10px;text-align:right">${formatFn(lmtd)}</td>
-        <td style="padding:7px 10px;text-align:right;font-weight:700">${formatFn(apr)}</td>
-        <td style="padding:7px 10px;text-align:right;color:#2b6cb0;font-weight:600">${proj?formatFn(proj):'–'}</td>
-        <td style="padding:7px 10px;text-align:right;color:#975a16">${formatFn(tgt)}</td>
+      const mtdG = bLmtd>0?((bApr-bLmtd)/bLmtd*100).toFixed(1):0;
+      // Brand row
+      rows += `<tr style="background:${BRAND_BG[brand]};border-bottom:2px solid ${BRAND_BD[brand]}">
+        <td style="padding:7px 10px;font-weight:700;color:#1a202c">${brand}</td>
+        <td style="padding:7px 10px;text-align:right;font-weight:600">${formatFn(bMar)}</td>
+        <td style="padding:7px 10px;text-align:right;font-weight:600">${formatFn(bLmtd)}</td>
+        <td style="padding:7px 10px;text-align:right;font-weight:700">${formatFn(bApr)}</td>
+        <td style="padding:7px 10px;text-align:right;color:#2b6cb0;font-weight:600">${bProj?formatFn(bProj):'–'}</td>
+        <td style="padding:7px 10px;text-align:right;color:#975a16">${formatFn(bTgt)}</td>
         <td style="padding:7px 10px;text-align:right;font-weight:700;color:${achColor}">${achPct}%</td>
         <td style="padding:7px 10px;text-align:right;color:${parseFloat(mtdG)>=0?'#276749':'#c53030'};font-weight:600">${parseFloat(mtdG)>=0?'↑':'↓'} ${Math.abs(mtdG)}%</td>
       </tr>`;
+      // Category rows (sorted descending)
+      Object.entries(d.categories||{})
+        .sort(([,a],[,b]) => gV(b.apr,metricKey) - gV(a.apr,metricKey))
+        .forEach(([cat,cData]) => {
+        const cApr=gV(cData.apr,metricKey), cMar=gV(cData.mar,metricKey), cLmtd=gLmtd(cData,metricKey);
+        const cTgt=gV(cData.tgt,metricKey), cProj=gProj(cData,metricKey);
+        const cAch = cTgt>0?(cApr/cTgt*100).toFixed(1):'–';
+        const cAchCol = parseFloat(cAch)>=100?'#276749':parseFloat(cAch)>=90?'#975a16':'#c53030';
+        const cG = cLmtd>0?((cApr-cLmtd)/cLmtd*100).toFixed(1):0;
+        rows += `<tr style="background:#fff;border-bottom:1px solid #e2e8f0">
+          <td style="padding:5px 10px 5px 22px;color:#2d3748;font-weight:600;font-size:11px">${cat}</td>
+          <td style="padding:5px 10px;text-align:right;font-size:11px">${formatFn(cMar)}</td>
+          <td style="padding:5px 10px;text-align:right;font-size:11px">${formatFn(cLmtd)}</td>
+          <td style="padding:5px 10px;text-align:right;font-size:11px;font-weight:600">${formatFn(cApr)}</td>
+          <td style="padding:5px 10px;text-align:right;font-size:11px;color:#2b6cb0">${cProj?formatFn(cProj):'–'}</td>
+          <td style="padding:5px 10px;text-align:right;font-size:11px;color:#975a16">${formatFn(cTgt)}</td>
+          <td style="padding:5px 10px;text-align:right;font-size:11px;font-weight:600;color:${cAchCol}">${cAch}%</td>
+          <td style="padding:5px 10px;text-align:right;font-size:11px;color:${parseFloat(cG)>=0?'#276749':'#c53030'}">${parseFloat(cG)>=0?'↑':'↓'} ${Math.abs(cG)}%</td>
+        </tr>`;
+        // SubCat rows (sorted descending)
+        Object.entries(cData.subcats||{})
+          .sort(([,a],[,b]) => gV(b.apr,metricKey) - gV(a.apr,metricKey))
+          .forEach(([sub,sData]) => {
+          const sApr=gV(sData.apr,metricKey), sMar=gV(sData.mar,metricKey), sLmtd=gLmtd(sData,metricKey);
+          const sTgt=gV(sData.tgt,metricKey), sProj=gProj(sData,metricKey);
+          const sAch = sTgt>0?(sApr/sTgt*100).toFixed(1):'–';
+          const sAchCol = parseFloat(sAch)>=100?'#276749':parseFloat(sAch)>=90?'#975a16':'#c53030';
+          const sG = sLmtd>0?((sApr-sLmtd)/sLmtd*100).toFixed(1):0;
+          rows += `<tr style="background:#f7fafc;border-bottom:1px solid #edf2f7">
+            <td style="padding:4px 10px 4px 38px;color:#4a5568;font-size:10px">${sub}</td>
+            <td style="padding:4px 10px;text-align:right;font-size:10px;color:#718096">${formatFn(sMar)}</td>
+            <td style="padding:4px 10px;text-align:right;font-size:10px;color:#718096">${formatFn(sLmtd)}</td>
+            <td style="padding:4px 10px;text-align:right;font-size:10px;font-weight:600">${formatFn(sApr)}</td>
+            <td style="padding:4px 10px;text-align:right;font-size:10px;color:#2b6cb0">${sProj?formatFn(sProj):'–'}</td>
+            <td style="padding:4px 10px;text-align:right;font-size:10px;color:#975a16">${formatFn(sTgt)}</td>
+            <td style="padding:4px 10px;text-align:right;font-size:10px;font-weight:600;color:${sAchCol}">${sAch}%</td>
+            <td style="padding:4px 10px;text-align:right;font-size:10px;color:${parseFloat(sG)>=0?'#276749':'#c53030'}">${parseFloat(sG)>=0?'↑':'↓'} ${Math.abs(sG)}%</td>
+          </tr>`;
+        });
+      });
     });
     return `<h3 style="font-size:13px;font-weight:700;color:#2d3748;margin:20px 0 8px">${label}</h3>
-    <table width="100%" style="border-collapse:collapse;font-size:12px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+    <table width="640" style="border-collapse:collapse;font-size:12px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
       <thead><tr style="background:#2d3748;color:#fff">
-        <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase">Brand</th>
+        <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase">Brand / Category / SubCat</th>
         <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Mar DRR</th>
         <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Mar LMTD</th>
         <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Apr MTD</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase;color:#90cdf4">Proj DRR</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase;color:#90cdf4">Proj</th>
         <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase;color:#fbd38d">Target</th>
         <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Tgt Ach</th>
         <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">MTD Growth</th>
@@ -567,7 +616,6 @@ function buildEmailHTML() {
     <tr><td style="padding:16px 20px">
       <table width="100%" style="border-collapse:collapse"><tr>${cardHtml}</tr></table>
       ${metricTable('📊 Units DRR', 'qty', fmtQty)}
-      ${metricTable('💰 GMV DRR (₹L)', 'gmv', fmtGmv)}
       ${metricTable('💵 Net Revenue DRR (₹L)', 'net_rev', fmtNr)}
     </td></tr>
     <tr><td style="background:#f7fafc;padding:12px 20px;font-size:10px;color:#718096;text-align:center">
@@ -586,7 +634,20 @@ function renderEmailTab() {
 }
 
 function createEmailDraft() {
-  alert('Draft creation requires Gmail MCP connection.\n\nTo send:\n1. Copy the email HTML from the preview\n2. Paste into Gmail compose\n\nFor automated daily sends, use the Schedule skill in Claude.');
+  const TO = 'anshul.bhatkar@mosaicwellness.in,sudarshan.balaraman@mosaicwellness.in,vaibhav.joneja@mosaicwellness.in';
+  const subj = document.getElementById('email-subject-preview').textContent || '📦 Blinkit Daily Update';
+  // Copy HTML to clipboard for pasting
+  const emailHTML = buildEmailHTML();
+  navigator.clipboard.writeText(emailHTML).catch(()=>{});
+  // Open Gmail compose with recipients + subject pre-filled
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(TO)}&su=${encodeURIComponent(subj)}`;
+  window.open(gmailUrl, '_blank');
+  // Show toast
+  const toast = document.createElement('div');
+  toast.style.cssText='position:fixed;bottom:24px;right:24px;background:#238636;color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:600;z-index:9999;box-shadow:0 4px 14px rgba(0,0,0,.4)';
+  toast.textContent='✓ Gmail opened + HTML copied to clipboard. Paste HTML body in compose.';
+  document.body.appendChild(toast);
+  setTimeout(()=>toast.remove(), 5000);
 }
 
 // ── TAB SWITCH ─────────────────────────────────────────────────────
@@ -604,14 +665,123 @@ function refreshData() {
   const btn = document.querySelector('.refresh-btn');
   btn.textContent = '⟳ Fetching...'; btn.style.opacity='.6';
   const url = `https://docs.google.com/spreadsheets/d/${DATA.meta.sheet_id}/gviz/tq?tqx=out:json&sheet=Email update BK`;
-  fetch(url).then(r=>r.text()).then(()=>{
-    btn.textContent='⟳ Refresh from GSheet'; btn.style.opacity='1';
-    document.getElementById('as-of').textContent='Live: '+new Date().toLocaleString('en-IN');
-    alert('Connected to Google Sheet. Full live-data pipeline coming in next release.');
-  }).catch(()=>{
-    btn.textContent='⟳ Refresh from GSheet'; btn.style.opacity='1';
-    alert('Could not reach Google Sheet. Ensure it is shared as "Anyone with link can view".\nShowing embedded data.');
+
+  fetch(url)
+    .then(r => r.text())
+    .then(raw => {
+      const json = JSON.parse(raw.substring(raw.indexOf('{'), raw.lastIndexOf('}')+1));
+      applySheetData(json);
+      const now = new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'});
+      document.getElementById('as-of').textContent = 'Live: ' + now;
+      btn.textContent = '⟳ Refresh from GSheet'; btn.style.opacity='1';
+    })
+    .catch(() => {
+      btn.textContent = '⟳ Refresh from GSheet'; btn.style.opacity='1';
+      document.getElementById('as-of').textContent = 'GSheet unreachable – showing embedded data';
+    });
+}
+
+function applySheetData(json) {
+  // Columns: 1/9=Brand, 2/10=Category
+  // Units section (cols 8-17): 11=MarDRR, 12=MarLMTD, 13=AprMTD, 14=TgtDRR, 15=ProjDRR
+  // NR section (cols 19-28):   22=MarDRR, 23=MarLMTD, 24=AprMTD, 25=TgtDRR, 26=ProjDRR
+  // 7-day units (cols 0-5):    3=Prev7, 4=Last7
+  const rows = json.table.rows;
+  const v = (r, i) => r.c?.[i]?.v ?? 0;
+
+  // Build lookup: brand → category → {qty, net_rev, ...}
+  const lookup = {};
+  const sevenDay = {}; // brand → category → {prev7, last7}
+
+  rows.forEach(r => {
+    const brand = v(r,9) || v(r,1);
+    const cat   = v(r,10) || v(r,2);
+    if (!brand || String(brand).includes('Total') || String(brand).includes('total')) return;
+    if (!cat) return;
+
+    if (!lookup[brand]) lookup[brand] = {};
+    lookup[brand][cat] = {
+      qty: {
+        mar: v(r,11), mar_lmtd: v(r,12), apr: v(r,13),
+        tgt: v(r,14), proj: v(r,15)
+      },
+      net_rev: {
+        mar: v(r,22), mar_lmtd: v(r,23), apr: v(r,24),
+        tgt: v(r,25), proj: v(r,26)
+      }
+    };
+
+    if (!sevenDay[brand]) sevenDay[brand] = {};
+    sevenDay[brand][cat] = { prev7: v(r,3), last7: v(r,4) };
   });
+
+  // Patch DATA.hierarchy with live category numbers, preserving subcats/products
+  const h = DATA.hierarchy;
+  ['Be Bodywise','Little Joys','Man Matters'].forEach(brand => {
+    if (!h[brand] || !lookup[brand]) return;
+    let bAprQ=0, bMarQ=0, bLmtdQ=0, bTgtQ=0, bProjQ=0;
+    let bAprN=0, bMarN=0, bLmtdN=0, bTgtN=0, bProjN=0;
+
+    Object.entries(lookup[brand]).forEach(([cat, d]) => {
+      if (!h[brand].categories[cat]) h[brand].categories[cat] = {apr:{},mar:{},tgt:{},proj:{},subcats:{},mar_lmtd:{}};
+      const hc = h[brand].categories[cat];
+      // patch qty
+      hc.apr.qty   = d.qty.apr;   hc.mar.qty   = d.qty.mar;
+      hc.tgt.qty   = d.qty.tgt;   hc.proj.proj_units = d.qty.proj;
+      hc.mar_lmtd  = hc.mar_lmtd || {};
+      hc.mar_lmtd.qty = d.qty.mar_lmtd;
+      // patch net_rev
+      hc.apr.net_rev  = d.net_rev.apr;  hc.mar.net_rev  = d.net_rev.mar;
+      hc.tgt.net_rev  = d.net_rev.tgt;  hc.proj.proj_nr = d.net_rev.proj;
+      hc.mar_lmtd.net_rev = d.net_rev.mar_lmtd;
+      // accumulate brand totals
+      bAprQ+=d.qty.apr; bMarQ+=d.qty.mar; bLmtdQ+=d.qty.mar_lmtd; bTgtQ+=d.qty.tgt; bProjQ+=d.qty.proj;
+      bAprN+=d.net_rev.apr; bMarN+=d.net_rev.mar; bLmtdN+=d.net_rev.mar_lmtd; bTgtN+=d.net_rev.tgt; bProjN+=d.net_rev.proj;
+    });
+
+    // Patch brand totals
+    h[brand].apr.qty = bAprQ; h[brand].mar.qty = bMarQ; h[brand].tgt.qty = bTgtQ;
+    h[brand].proj.proj_units = bProjQ;
+    if (h[brand].mar_lmtd) h[brand].mar_lmtd.qty = bLmtdQ;
+    h[brand].apr.net_rev = bAprN; h[brand].mar.net_rev = bMarN; h[brand].tgt.net_rev = bTgtN;
+    h[brand].proj.proj_nr = bProjN;
+    if (h[brand].mar_lmtd) h[brand].mar_lmtd.net_rev = bLmtdN;
+  });
+
+  // Patch 7-day data
+  if (DATA.sevenDay) {
+    ['Be Bodywise','Little Joys','Man Matters'].forEach(brand => {
+      if (!DATA.sevenDay[brand] || !sevenDay[brand]) return;
+      Object.entries(sevenDay[brand]).forEach(([cat, d]) => {
+        if (!DATA.sevenDay[brand][cat]) DATA.sevenDay[brand][cat] = {};
+        DATA.sevenDay[brand][cat].prev7_qty = d.prev7;
+        DATA.sevenDay[brand][cat].last7_qty = d.last7;
+      });
+    });
+  }
+
+  // Re-render all tabs
+  const curMetric = document.querySelector('.metric-btn.active')?.textContent;
+  const metricMap = {'Units':'qty','GMV':'gmv','Net Revenue':'net_rev'};
+  const m = metricMap[curMetric] || 'qty';
+  renderCards();
+  buildRows(m, 'drill-body');
+  buildRows('qty', 'units-body');
+  buildRows('net_rev', 'rev-body');
+  if (typeof buildSevenDay === 'function') buildSevenDay();
+}
+
+// ── AUTO REFRESH AT 11AM IST ────────────────────────────────────────
+function scheduleAutoRefresh() {
+  const checkAndRefresh = () => {
+    const now = new Date();
+    const ist = new Date(now.toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
+    const h = ist.getHours(), min = ist.getMinutes();
+    // Refresh between 11:00–11:05 IST
+    if (h === 11 && min < 5) refreshData();
+  };
+  // Check every 60 seconds
+  setInterval(checkAndRefresh, 60000);
 }
 
 // ── INIT ───────────────────────────────────────────────────────────
@@ -623,6 +793,10 @@ function init() {
   buildRows('qty','units-body');
   buildRows('gmv','gmv-body');
   buildRows('net_rev','rev-body');
+  // Auto-refresh from GSheet on page load
+  setTimeout(refreshData, 2000);
+  // Schedule daily 11am IST auto-refresh
+  scheduleAutoRefresh();
 }
 init();
 </script>

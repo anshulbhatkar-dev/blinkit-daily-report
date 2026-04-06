@@ -682,93 +682,84 @@ function refreshData() {
 }
 
 function applySheetData(json) {
-  // Columns: 1/9=Brand, 2/10=Category
-  // Units section (cols 8-17): 11=MarDRR, 12=MarLMTD, 13=AprMTD, 14=TgtDRR, 15=ProjDRR
-  // NR section (cols 19-28):   22=MarDRR, 23=MarLMTD, 24=AprMTD, 25=TgtDRR, 26=ProjDRR
-  // 7-day units (cols 0-5):    3=Prev7, 4=Last7
+  // Sheet cols: 11=MarDRR, 12=MarLMTD, 13=AprMTD, 14=TgtDRR, 15=ProjDRR, 16=TgtAch
+  //             22=NR MarDRR, 23=NR MarLMTD, 24=NR AprMTD, 25=NR TgtDRR, 26=NR Proj, 27=NR TgtAch
+  //             3=Prev7D, 4=Last7D
   const rows = json.table.rows;
   const v = (r, i) => r.c?.[i]?.v ?? 0;
 
-  // Build lookup: brand → category → {qty, net_rev, ...}
-  const lookup = {};
-  const sevenDay = {}; // brand → category → {prev7, last7}
+  const catRows  = {};   // brand → cat → data
+  const totalRows = {};  // 'Be Bodywise' → data from "Be Bodywise Total>" row
 
   rows.forEach(r => {
-    const brand = v(r,9) || v(r,1);
-    const cat   = v(r,10) || v(r,2);
-    if (!brand || String(brand).includes('Total') || String(brand).includes('total')) return;
-    if (!cat) return;
+    const rawBrand = String(v(r,9)||v(r,1)||'');
+    const cat      = String(v(r,10)||v(r,2)||'');
+    if (!rawBrand) return;
 
-    if (!lookup[brand]) lookup[brand] = {};
-    lookup[brand][cat] = {
-      qty: {
-        mar: v(r,11), mar_lmtd: v(r,12), apr: v(r,13),
-        tgt: v(r,14), proj: v(r,15)
-      },
-      net_rev: {
-        mar: v(r,22), mar_lmtd: v(r,23), apr: v(r,24),
-        tgt: v(r,25), proj: v(r,26)
-      }
-    };
-
-    if (!sevenDay[brand]) sevenDay[brand] = {};
-    sevenDay[brand][cat] = { prev7: v(r,3), last7: v(r,4) };
+    if (rawBrand.includes('Total>')) {
+      // Brand total row — strip suffix
+      const brand = rawBrand.replace(/\s*Total>.*/, '').trim();
+      totalRows[brand] = {
+        qty:    { mar: v(r,11), lmtd: v(r,12), apr: v(r,13), tgt: v(r,14), proj: v(r,15) },
+        net_rev:{ mar: v(r,22), lmtd: v(r,23), apr: v(r,24), tgt: v(r,25), proj: v(r,26) },
+        prev7: v(r,3), last7: v(r,4)
+      };
+    } else if (cat && rawBrand !== 'Total') {
+      // Category row
+      if (!catRows[rawBrand]) catRows[rawBrand] = {};
+      catRows[rawBrand][cat] = {
+        qty:    { mar: v(r,11), lmtd: v(r,12), apr: v(r,13), tgt: v(r,14), proj: v(r,15) },
+        net_rev:{ mar: v(r,22), lmtd: v(r,23), apr: v(r,24), tgt: v(r,25), proj: v(r,26) },
+        prev7: v(r,3), last7: v(r,4)
+      };
+    }
   });
 
-  // Patch DATA.hierarchy with live category numbers, preserving subcats/products
   const h = DATA.hierarchy;
   ['Be Bodywise','Little Joys','Man Matters'].forEach(brand => {
-    if (!h[brand] || !lookup[brand]) return;
-    let bAprQ=0, bMarQ=0, bLmtdQ=0, bTgtQ=0, bProjQ=0;
-    let bAprN=0, bMarN=0, bLmtdN=0, bTgtN=0, bProjN=0;
+    if (!h[brand]) return;
 
-    Object.entries(lookup[brand]).forEach(([cat, d]) => {
-      if (!h[brand].categories[cat]) h[brand].categories[cat] = {apr:{},mar:{},tgt:{},proj:{},subcats:{},mar_lmtd:{}};
+    // ── Brand level: use Total row directly (not sum of cats) ──
+    const bt = totalRows[brand];
+    if (bt) {
+      h[brand].apr.qty      = bt.qty.apr;
+      h[brand].mar.qty      = bt.qty.mar;
+      h[brand].tgt.qty      = bt.qty.tgt;
+      h[brand].proj.proj_units = bt.qty.proj;
+      if (!h[brand].mar_lmtd) h[brand].mar_lmtd = {};
+      h[brand].mar_lmtd.qty = bt.qty.lmtd;
+
+      h[brand].apr.net_rev      = bt.net_rev.apr;
+      h[brand].mar.net_rev      = bt.net_rev.mar;
+      h[brand].tgt.net_rev      = bt.net_rev.tgt;
+      h[brand].proj.proj_nr     = bt.net_rev.proj;
+      h[brand].mar_lmtd.net_rev = bt.net_rev.lmtd;
+    }
+
+    // ── Category level ──
+    Object.entries(catRows[brand] || {}).forEach(([cat, d]) => {
+      if (!h[brand].categories[cat])
+        h[brand].categories[cat] = {apr:{},mar:{},tgt:{},proj:{},subcats:{},mar_lmtd:{}};
       const hc = h[brand].categories[cat];
-      // patch qty
-      hc.apr.qty   = d.qty.apr;   hc.mar.qty   = d.qty.mar;
-      hc.tgt.qty   = d.qty.tgt;   hc.proj.proj_units = d.qty.proj;
-      hc.mar_lmtd  = hc.mar_lmtd || {};
-      hc.mar_lmtd.qty = d.qty.mar_lmtd;
-      // patch net_rev
-      hc.apr.net_rev  = d.net_rev.apr;  hc.mar.net_rev  = d.net_rev.mar;
-      hc.tgt.net_rev  = d.net_rev.tgt;  hc.proj.proj_nr = d.net_rev.proj;
-      hc.mar_lmtd.net_rev = d.net_rev.mar_lmtd;
-      // accumulate brand totals
-      bAprQ+=d.qty.apr; bMarQ+=d.qty.mar; bLmtdQ+=d.qty.mar_lmtd; bTgtQ+=d.qty.tgt; bProjQ+=d.qty.proj;
-      bAprN+=d.net_rev.apr; bMarN+=d.net_rev.mar; bLmtdN+=d.net_rev.mar_lmtd; bTgtN+=d.net_rev.tgt; bProjN+=d.net_rev.proj;
+      hc.apr.qty        = d.qty.apr;  hc.mar.qty        = d.qty.mar;
+      hc.tgt.qty        = d.qty.tgt;  hc.proj.proj_units = d.qty.proj;
+      hc.mar_lmtd       = hc.mar_lmtd || {};
+      hc.mar_lmtd.qty   = d.qty.lmtd;
+      hc.apr.net_rev    = d.net_rev.apr;  hc.mar.net_rev    = d.net_rev.mar;
+      hc.tgt.net_rev    = d.net_rev.tgt;  hc.proj.proj_nr   = d.net_rev.proj;
+      hc.mar_lmtd.net_rev = d.net_rev.lmtd;
     });
-
-    // Patch brand totals
-    h[brand].apr.qty = bAprQ; h[brand].mar.qty = bMarQ; h[brand].tgt.qty = bTgtQ;
-    h[brand].proj.proj_units = bProjQ;
-    if (h[brand].mar_lmtd) h[brand].mar_lmtd.qty = bLmtdQ;
-    h[brand].apr.net_rev = bAprN; h[brand].mar.net_rev = bMarN; h[brand].tgt.net_rev = bTgtN;
-    h[brand].proj.proj_nr = bProjN;
-    if (h[brand].mar_lmtd) h[brand].mar_lmtd.net_rev = bLmtdN;
   });
-
-  // Patch 7-day data
-  if (DATA.sevenDay) {
-    ['Be Bodywise','Little Joys','Man Matters'].forEach(brand => {
-      if (!DATA.sevenDay[brand] || !sevenDay[brand]) return;
-      Object.entries(sevenDay[brand]).forEach(([cat, d]) => {
-        if (!DATA.sevenDay[brand][cat]) DATA.sevenDay[brand][cat] = {};
-        DATA.sevenDay[brand][cat].prev7_qty = d.prev7;
-        DATA.sevenDay[brand][cat].last7_qty = d.last7;
-      });
-    });
-  }
 
   // Re-render all tabs
   const curMetric = document.querySelector('.metric-btn.active')?.textContent;
-  const metricMap = {'Units':'qty','GMV':'gmv','Net Revenue':'net_rev'};
-  const m = metricMap[curMetric] || 'qty';
+  const m = {'Units':'qty','GMV':'gmv','Net Revenue':'net_rev'}[curMetric] || 'qty';
   renderCards();
-  buildRows(m, 'drill-body');
-  buildRows('qty', 'units-body');
-  buildRows('net_rev', 'rev-body');
-  if (typeof buildSevenDay === 'function') buildSevenDay();
+  buildRows(m,   'drill-body');
+  buildRows('qty','units-body');
+  buildRows('gmv','gmv-body');
+  buildRows('net_rev','rev-body');
+  if (typeof build7DayRows === 'function') build7DayRows(METRIC7||'qty');
 }
 
 // ── AUTO REFRESH AT 11AM IST ────────────────────────────────────────

@@ -318,7 +318,7 @@ function buildRows(metric, tbodyId) {
       <td><span class="exp-icon">▸</span>${brand}</td>
       <td>${fL(bMar,metric)}</td><td>${fL(bLmtd,metric)}</td><td>${fL(bApr,metric)}</td>
       <td class="proj-val">${fL(bProj,metric)}</td><td class="tgt-val">${fL(bTgt,metric)}</td>
-      <td>${fAch(bApr,bTgt)}</td><td>${fPct(bApr,bLmtd)}</td>
+      <td>${fAch(bProj,bTgt)}</td><td>${fPct(bApr,bLmtd)}</td>
     </tr>`;
 
     Object.entries(d.categories||{})
@@ -331,7 +331,7 @@ function buildRows(metric, tbodyId) {
         <td><span class="exp-icon">▸</span>${cat}</td>
         <td>${fL(cMar,metric)}</td><td>${fL(cLmtd,metric)}</td><td>${fL(cApr,metric)}</td>
         <td class="proj-val">${fL(cProj,metric)}</td><td class="tgt-val">${fL(cTgt,metric)}</td>
-        <td>${fAch(cApr,cTgt)}</td><td>${fPct(cApr,cLmtd)}</td>
+        <td>${fAch(cProj,cTgt)}</td><td>${fPct(cApr,cLmtd)}</td>
       </tr>`;
 
       Object.entries(cData.subcats||{})
@@ -344,7 +344,7 @@ function buildRows(metric, tbodyId) {
           <td><span class="exp-icon">▸</span>${sub}</td>
           <td>${fL(sMar,metric)}</td><td>${fL(sLmtd,metric)}</td><td>${fL(sApr,metric)}</td>
           <td class="proj-val">${fL(sProj,metric)}</td><td class="tgt-val">${fL(sTgt,metric)}</td>
-          <td>${fAch(sApr,sTgt)}</td><td>${fPct(sApr,sLmtd)}</td>
+          <td>${fAch(sProj,sTgt)}</td><td>${fPct(sApr,sLmtd)}</td>
         </tr>`;
 
         (sData.products||[])
@@ -532,7 +532,7 @@ function buildEmailHTML() {
       const d = h[brand]; if(!d) return;
       const bApr=gV(d.apr,metricKey), bMar=gV(d.mar,metricKey), bLmtd=gLmtd(d,metricKey);
       const bTgt=gV(d.tgt,metricKey), bProj=gProj(d,metricKey);
-      const achPct = bTgt>0?(bApr/bTgt*100).toFixed(1):'–';
+      const achPct = bTgt>0&&bProj?(bProj/bTgt*100).toFixed(1):'–';
       const achColor = parseFloat(achPct)>=100?'#276749':parseFloat(achPct)>=90?'#975a16':'#c53030';
       const mtdG = bLmtd>0?((bApr-bLmtd)/bLmtd*100).toFixed(1):0;
       // Brand row
@@ -552,7 +552,7 @@ function buildEmailHTML() {
         .forEach(([cat,cData]) => {
         const cApr=gV(cData.apr,metricKey), cMar=gV(cData.mar,metricKey), cLmtd=gLmtd(cData,metricKey);
         const cTgt=gV(cData.tgt,metricKey), cProj=gProj(cData,metricKey);
-        const cAch = cTgt>0?(cApr/cTgt*100).toFixed(1):'–';
+        const cAch = cTgt>0&&cProj?(cProj/cTgt*100).toFixed(1):'–';
         const cAchCol = parseFloat(cAch)>=100?'#276749':parseFloat(cAch)>=90?'#975a16':'#c53030';
         const cG = cLmtd>0?((cApr-cLmtd)/cLmtd*100).toFixed(1):0;
         rows += `<tr style="background:#fff;border-bottom:1px solid #e2e8f0">
@@ -571,7 +571,7 @@ function buildEmailHTML() {
           .forEach(([sub,sData]) => {
           const sApr=gV(sData.apr,metricKey), sMar=gV(sData.mar,metricKey), sLmtd=gLmtd(sData,metricKey);
           const sTgt=gV(sData.tgt,metricKey), sProj=gProj(sData,metricKey);
-          const sAch = sTgt>0?(sApr/sTgt*100).toFixed(1):'–';
+          const sAch = sTgt>0&&sProj?(sProj/sTgt*100).toFixed(1):'–';
           const sAchCol = parseFloat(sAch)>=100?'#276749':parseFloat(sAch)>=90?'#975a16':'#c53030';
           const sG = sLmtd>0?((sApr-sLmtd)/sLmtd*100).toFixed(1):0;
           rows += `<tr style="background:#f7fafc;border-bottom:1px solid #edf2f7">

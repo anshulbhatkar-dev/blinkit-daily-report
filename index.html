@@ -279,9 +279,9 @@ function renderCards() {
     const rg = d.mar.net_rev > 0 ? ((d.apr.net_rev-d.mar.net_rev)/d.mar.net_rev*100).toFixed(1) : 0;
     const lmtdL = d.mar_lmtd ? (d.mar_lmtd.net_rev/1e5).toFixed(1) : '–';
     const lmtdG = d.mar_lmtd && d.mar_lmtd.net_rev > 0 ? ((d.apr.net_rev-d.mar_lmtd.net_rev)/d.mar_lmtd.net_rev*100).toFixed(1) : null;
-    const achU = d.tgt.qty > 0 ? (d.apr.qty/d.tgt.qty*100).toFixed(1) : '–';
+    const achU = d.tgt.qty > 0 && d.proj ? (d.proj.proj_units/d.tgt.qty*100).toFixed(1) : '–';
     const achCls = parseFloat(achU)>=100?'ach-g':parseFloat(achU)>=90?'ach-a':'ach-r';
-    const qg = d.mar.qty > 0 ? ((d.apr.qty-d.mar.qty)/d.mar.qty*100).toFixed(1) : 0;
+    const qg = d.mar_lmtd && d.mar_lmtd.qty > 0 ? ((d.apr.qty-d.mar_lmtd.qty)/d.mar_lmtd.qty*100).toFixed(1) : (d.mar.qty > 0 ? ((d.apr.qty-d.mar.qty)/d.mar.qty*100).toFixed(1) : 0);
     el.innerHTML += `
     <div class="card ${BSTYLE[brand]}">
       <div class="card-label">${brand}</div>
@@ -295,7 +295,7 @@ function renderCards() {
         <div><div class="cm-label">Apr MTD Units</div><div class="cm-val">${Number(d.apr.qty).toLocaleString('en-IN',{maximumFractionDigits:0})}</div></div>
         <div><div class="cm-label">Proj Units/day</div><div class="cm-val" style="color:#79c0ff">${d.proj?Number(d.proj.proj_units).toLocaleString('en-IN',{maximumFractionDigits:0}):'–'}</div></div>
         <div><div class="cm-label">Tgt Ach (Units)</div><div class="cm-val ${achCls}">${achU}%</div></div>
-        <div><div class="cm-label">vs Mar (Units)</div><div class="cm-val ${parseFloat(qg)>=0?'pos':'neg'}">${parseFloat(qg)>=0?'↑':'↓'} ${Math.abs(qg)}%</div></div>
+        <div><div class="cm-label">vs LMTD (Units)</div><div class="cm-val ${parseFloat(qg)>=0?'pos':'neg'}">${parseFloat(qg)>=0?'↑':'↓'} ${Math.abs(qg)}%</div></div>
       </div>
       <div class="ach-bar"><div class="ach-fill" style="width:${achPct}%;background:${achColor}"></div></div>
     </div>`;
@@ -539,9 +539,10 @@ function buildEmailHTML() {
   const totProjNr = brands.reduce((s,b)=>s+(h[b]?.proj?.proj_nr||0),0);
   const totTgtNr  = brands.reduce((s,b)=>s+(h[b]?.tgt?.net_rev||0),0);
 
-  const brandCards = brands.map(brand => {
+  // All 4 cards in ONE row at 25% each
+  const brandCardTds = brands.map(brand => {
     const d = h[brand]; if(!d) return '<td></td>';
-    return `<td width="33%" style="padding:4px;vertical-align:top">${makeCard(
+    return `<td width="25%" style="padding:4px;vertical-align:top">${makeCard(
       brand, BC[brand], BG[brand],
       d.apr.net_rev, d.mar_lmtd?.net_rev||0,
       d.apr.qty,     d.mar_lmtd?.qty||0,
@@ -549,16 +550,58 @@ function buildEmailHTML() {
     )}</td>`;
   }).join('');
 
-  const totalCard = makeCard(
-    '🏁 All Brands Combined', '#2d3748', '#f7fafc',
+  const totalCardTd = `<td width="25%" style="padding:4px;vertical-align:top">${makeCard(
+    '🏁 All Brands', '#2d3748', '#f7fafc',
     totAprNr, totLmtdNr, totAprQty, totLmtdQty, totProjNr, totTgtNr
-  );
+  )}</td>`;
 
-  const cardHtml = `
-    <table width="100%" style="border-collapse:collapse"><tr>${brandCards}</tr></table>
-    <table width="100%" style="border-collapse:collapse;margin-top:8px">
-      <tr><td style="padding:4px">${totalCard}</td></tr>
+  const cardHtml = `<table width="100%" style="border-collapse:collapse"><tr>${brandCardTds}${totalCardTd}</tr></table>`;
+
+  // 7-day units section (brand + category)
+  function make7DayUnitSection() {
+    const sd = DATA.seven_day, meta = DATA.meta;
+    if (!sd) return '';
+    const l7Label = meta.l7_start && meta.l7_end ? `${meta.l7_start} → ${meta.l7_end}` : 'Last 7 Days';
+    const p7Label = meta.p7_start && meta.p7_end ? `${meta.p7_start} → ${meta.p7_end}` : 'Prev 7 Days';
+    let rows = '';
+    const BG7 = {'Be Bodywise':'#ebf8ff','Little Joys':'#f0fff4','Man Matters':'#fffaf0'};
+    const BD7 = {'Be Bodywise':'#bee3f8','Little Joys':'#9ae6b4','Man Matters':'#fbd38d'};
+    brands.forEach(brand => {
+      const d = sd[brand]; if (!d) return;
+      const bl7 = d.l7?.qty||0, bp7 = d.p7?.qty||0;
+      const bPct = bp7>0 ? ((bl7-bp7)/bp7*100).toFixed(1) : null;
+      const bCol = bPct!==null ? (parseFloat(bPct)>=0?'#276749':'#c53030') : '#718096';
+      rows += `<tr style="background:${BG7[brand]};border-bottom:2px solid ${BD7[brand]}">
+        <td style="padding:7px 10px;font-weight:700;color:#1a202c">${brand}</td>
+        <td style="padding:7px 10px;text-align:right;font-weight:600">${Number(bp7).toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+        <td style="padding:7px 10px;text-align:right;font-weight:700">${Number(bl7).toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+        <td style="padding:7px 10px;text-align:right;font-weight:700;color:${bCol}">${bPct!==null?(parseFloat(bPct)>=0?'↑':'↓')+Math.abs(bPct)+'%':'–'}</td>
+      </tr>`;
+      Object.entries(d.categories||{})
+        .sort(([,a],[,b])=>(b.l7?.qty||0)-(a.l7?.qty||0))
+        .forEach(([cat,cData]) => {
+          const cl7=cData.l7?.qty||0, cp7=cData.p7?.qty||0;
+          const cPct = cp7>0 ? ((cl7-cp7)/cp7*100).toFixed(1) : null;
+          const cCol = cPct!==null ? (parseFloat(cPct)>=0?'#276749':'#c53030') : '#718096';
+          rows += `<tr style="background:#fff;border-bottom:1px solid #e2e8f0">
+            <td style="padding:5px 10px 5px 22px;color:#2d3748;font-size:11px;font-weight:600">${cat}</td>
+            <td style="padding:5px 10px;text-align:right;font-size:11px">${Number(cp7).toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+            <td style="padding:5px 10px;text-align:right;font-size:11px;font-weight:600">${Number(cl7).toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+            <td style="padding:5px 10px;text-align:right;font-size:11px;font-weight:600;color:${cCol}">${cPct!==null?(parseFloat(cPct)>=0?'↑':'↓')+Math.abs(cPct)+'%':'–'}</td>
+          </tr>`;
+        });
+    });
+    return `<h3 style="font-size:13px;font-weight:700;color:#2d3748;margin:20px 0 8px">📈 Units DRR — Last 7 Days vs Previous 7 Days</h3>
+    <table width="640" style="border-collapse:collapse;font-size:12px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+      <thead><tr style="background:#2d3748;color:#fff">
+        <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase">Brand / Category</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Prev 7D (${p7Label})</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Last 7D (${l7Label})</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">WoW Change</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
     </table>`;
+  }
 
   // Parts 2-4 — Metric Tables (Brand > Category only)
   function metricTable(label, metricKey, formatFn) {
@@ -624,26 +667,33 @@ function buildEmailHTML() {
   const fmtGmv = v => v && v>0 ? '₹'+(v/1e5).toFixed(1)+'L' : '–';
   const fmtQty = v => v ? Number(v).toLocaleString('en-IN',{maximumFractionDigits:0}) : '–';
 
+  const DASHBOARD_URL = 'https://blinkit-ads-dashboard-zj65.vercel.app/';
+  const aprDays = (()=>{
+    const istNow = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
+    const dataDate = new Date(asOf);
+    return !isNaN(dataDate) && dataDate.getMonth()===3 ? dataDate.getDate() : istNow.getDate()-1;
+  })();
+
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:'Helvetica Neue',Arial,sans-serif;background:#f7fafc;margin:0;padding:20px">
-  <table width="640" style="margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);border-collapse:collapse">
+  <table width="700" style="margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);border-collapse:collapse">
     <tr><td style="background:linear-gradient(135deg,#1a365d,#2b6cb0);padding:18px 24px">
-      <span style="color:#fff;font-size:18px;font-weight:800">📦 Blinkit Daily Update</span>
-      <span style="color:#bee3f8;font-size:11px;display:block;margin-top:3px">${(()=>{
-        // Compute Apr days dynamically from as_of date
-        const istNow = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
-        const dataDate = new Date(asOf) || istNow;
-        const aprDay = dataDate.getMonth()===3 ? dataDate.getDate() : istNow.getDate()-1;
-        const lmtdEnd = aprDay;
-        return `As of ${asOf} · Apr 1–${aprDay} (${aprDay} days) · LMTD = Mar 1–${lmtdEnd}`;
-      })()}</span>
+      <a href="${DASHBOARD_URL}" style="text-decoration:none">
+        <span style="color:#fff;font-size:18px;font-weight:800">📦 Blinkit Daily Update</span>
+      </a>
+      <span style="color:#bee3f8;font-size:11px;display:block;margin-top:3px">
+        As of ${asOf} · Apr 1–${aprDays} (${aprDays} days) · LMTD = Mar 1–${aprDays}
+      </span>
+      <a href="${DASHBOARD_URL}" style="display:inline-block;margin-top:8px;background:rgba(255,255,255,0.15);color:#fff;font-size:10px;font-weight:600;padding:4px 10px;border-radius:12px;text-decoration:none">🔗 Open Dashboard →</a>
     </td></tr>
     <tr><td style="padding:16px 20px">
+      <h3 style="font-size:13px;font-weight:700;color:#2d3748;margin:0 0 8px">📊 Brand Summary</h3>
       ${cardHtml}
-      ${metricTable('📊 Units DRR', 'qty', fmtQty)}
+      ${make7DayUnitSection()}
       ${metricTable('💵 Net Revenue DRR (₹L)', 'net_rev', fmtNr)}
+      ${metricTable('📦 Units DRR', 'qty', fmtQty)}
     </td></tr>
     <tr><td style="background:#f7fafc;padding:12px 20px;font-size:10px;color:#718096;text-align:center">
-      Auto-generated · Mosaic Wellness Blinkit Dashboard · ${new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})}
+      Auto-generated · <a href="${DASHBOARD_URL}" style="color:#4a90e2;text-decoration:none">Mosaic Wellness Blinkit Dashboard</a> · ${new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})}
     </td></tr>
   </table></body></html>`;
 }
@@ -675,14 +725,16 @@ function showToast(msg, color) {
 async function gmailCreateDraftWithToken(accessToken) {
   const TO  = 'anshul.bhatkar@mosaicwellness.in';
   const CC  = 'sudarshan.balaraman@mosaicwellness.in,vaibhav.joneja@mosaicwellness.in';
-  const subj = document.getElementById('email-subject-preview').textContent || '📦 Blinkit Daily Update';
+  const rawSubj = document.getElementById('email-subject-preview').textContent || '📦 Blinkit Daily Update';
+  // RFC 2047 encoded-word: prevents UTF-8 garbling in email clients
+  const encSubj = `=?UTF-8?B?${btoa(unescape(encodeURIComponent(rawSubj)))}?=`;
   const body = buildEmailHTML();
 
   // Build RFC 2822 message
   const msg = [
     `To: ${TO}`,
     `Cc: ${CC}`,
-    `Subject: ${subj}`,
+    `Subject: ${encSubj}`,
     'MIME-Version: 1.0',
     'Content-Type: text/html; charset=UTF-8',
     '',

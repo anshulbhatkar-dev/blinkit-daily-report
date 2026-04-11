@@ -353,11 +353,14 @@ function buildRows(metric, tbodyId) {
           .forEach(prod => {
           const pApr=gV(prod.apr,metric), pMar=gV(prod.mar,metric), pLmtd=gLmtd(prod,metric);
           const pProj=gProj(prod,metric);
+          const pTgt = prod.tgt ? gV(prod.tgt, metric) : 0;
           tbody.innerHTML += `<tr class="row-prod prod-row sub-${sid}">
             <td>${prod.name}</td>
             <td>${fL(pMar,metric)}</td><td>${fL(pLmtd,metric)}</td><td>${fL(pApr,metric)}</td>
-            <td class="proj-val">${fL(pProj,metric)}</td><td class="tgt-val">–</td>
-            <td>–</td><td>${fPct(pApr,pLmtd)}</td>
+            <td class="proj-val">${fL(pProj,metric)}</td>
+            <td class="tgt-val">${pTgt>0?fL(pTgt,metric):'–'}</td>
+            <td>${pTgt>0?fAch(pProj,pTgt):'–'}</td>
+            <td>${fPct(pApr,pLmtd)}</td>
           </tr>`;
         });
       });
@@ -803,21 +806,111 @@ function switchTab(tab, evt) {
 function refreshData() {
   const btn = document.querySelector('.refresh-btn');
   btn.textContent = '⟳ Fetching...'; btn.style.opacity='.6';
-  const url = `https://docs.google.com/spreadsheets/d/${DATA.meta.sheet_id}/gviz/tq?tqx=out:json&sheet=Email update BK`;
+  const sheetId = DATA.meta.sheet_id;
+  const urlMain = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=Email%20update%20BK`;
+  const urlSku  = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&gid=1200688139`;
 
-  fetch(url)
-    .then(r => r.text())
-    .then(raw => {
-      const json = JSON.parse(raw.substring(raw.indexOf('{'), raw.lastIndexOf('}')+1));
-      applySheetData(json);
-      const now = new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'});
-      document.getElementById('as-of').textContent = 'Live: ' + now;
-      btn.textContent = '⟳ Refresh from GSheet'; btn.style.opacity='1';
-    })
-    .catch(() => {
-      btn.textContent = '⟳ Refresh from GSheet'; btn.style.opacity='1';
-      document.getElementById('as-of').textContent = 'GSheet unreachable – showing embedded data';
+  const parse = raw => JSON.parse(raw.substring(raw.indexOf('{'), raw.lastIndexOf('}')+1));
+
+  Promise.all([
+    fetch(urlMain).then(r=>r.text()).then(parse),
+    fetch(urlSku).then(r=>r.text()).then(parse)
+  ])
+  .then(([mainJson, skuJson]) => {
+    applySheetData(mainJson);   // brand + category level (units + NR)
+    applySkuData(skuJson);      // subcat + product level (units only, live)
+    const now = new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'});
+    document.getElementById('as-of').textContent = 'Live: ' + now;
+    btn.textContent = '⟳ Refresh from GSheet'; btn.style.opacity='1';
+    reRenderAll();
+  })
+  .catch(err => {
+    console.warn('Refresh error:', err);
+    btn.textContent = '⟳ Refresh from GSheet'; btn.style.opacity='1';
+    document.getElementById('as-of').textContent = 'GSheet unreachable – showing embedded data';
+  });
+}
+
+// ── SKU LEVEL DATA PARSER ──────────────────────────────────────────
+// GSheet "SKU level" tab (GID=1200688139)
+// Col mapping (0-indexed): 0=Platform, 1=SKU name, 3=Item ID, 4=Brand,
+//   5=GC Cat (subcat), 6=Category, 32=Target DRR, 33=Proj DRR,
+//   35=Apr MTD DRR, 36=Mar LMTD DRR, 37=Mar DRR
+function applySkuData(json) {
+  const rows = json.table.rows;
+  const v = (r, i) => { const c = r.c?.[i]; return (c && c.v != null) ? c.v : 0; };
+  const vs = (r, i) => { const c = r.c?.[i]; return (c && c.v != null) ? String(c.v) : ''; };
+
+  const BRANDS = new Set(['Be Bodywise','Little Joys','Man Matters']);
+  // bucket: brand → cat → gccat → [{name, item_id, apr, lmtd, mar, tgt, proj}]
+  const bucket = {};
+
+  rows.forEach(r => {
+    const platform = vs(r, 0);
+    if (platform !== 'Blinkit') return;
+    const brand = vs(r, 4);
+    if (!BRANDS.has(brand)) return;
+    const cat   = vs(r, 6);
+    if (!cat || cat === 'Total>' || cat === 'Subtotal>') return;
+    const gccat = vs(r, 5) || cat;  // GC Cat as subcat; fallback to cat
+    const name  = vs(r, 1);
+    const itemId= String(v(r, 3));
+
+    if (!bucket[brand]) bucket[brand] = {};
+    if (!bucket[brand][cat]) bucket[brand][cat] = {};
+    if (!bucket[brand][cat][gccat]) bucket[brand][cat][gccat] = [];
+
+    bucket[brand][cat][gccat].push({
+      name,
+      item_id: itemId,
+      apr:      { qty: v(r, 35) },
+      mar:      { qty: v(r, 37) },
+      mar_lmtd: { qty: v(r, 36) },
+      tgt:      { qty: v(r, 32) },
+      proj:     { proj_units: v(r, 33) }
     });
+  });
+
+  // Apply to DATA.hierarchy — rebuild subcats + products from live SKU data
+  const h = DATA.hierarchy;
+  BRANDS.forEach(brand => {
+    if (!h[brand] || !bucket[brand]) return;
+    Object.entries(bucket[brand]).forEach(([cat, subcats]) => {
+      if (!h[brand].categories[cat])
+        h[brand].categories[cat] = {apr:{},mar:{},tgt:{},proj:{},mar_lmtd:{},subcats:{}};
+      const hc = h[brand].categories[cat];
+
+      // Rebuild subcats from live product data
+      hc.subcats = {};
+      Object.entries(subcats).forEach(([gccat, products]) => {
+        // Aggregate subcat totals from products
+        const sApr  = products.reduce((s,p)=>s+(p.apr.qty||0),0);
+        const sMar  = products.reduce((s,p)=>s+(p.mar.qty||0),0);
+        const sLmtd = products.reduce((s,p)=>s+(p.mar_lmtd.qty||0),0);
+        const sTgt  = products.reduce((s,p)=>s+(p.tgt.qty||0),0);
+        const sProj = products.reduce((s,p)=>s+(p.proj.proj_units||0),0);
+
+        hc.subcats[gccat] = {
+          apr:      { qty: sApr },
+          mar:      { qty: sMar },
+          mar_lmtd: { qty: sLmtd },
+          tgt:      { qty: sTgt },
+          proj:     { proj_units: sProj },
+          products: products.slice().sort((a,b)=>(b.apr.qty||0)-(a.apr.qty||0))
+        };
+      });
+    });
+  });
+}
+
+// ── RE-RENDER ALL TABS ─────────────────────────────────────────────
+function reRenderAll() {
+  renderCards();
+  buildRows('qty',    'drill-body');
+  buildRows('qty',    'units-body');
+  buildRows('gmv',    'gmv-body');
+  buildRows('net_rev','rev-body');
+  if (typeof build7DayRows === 'function') build7DayRows(METRIC7||'qty');
 }
 
 function applySheetData(json) {
@@ -890,15 +983,7 @@ function applySheetData(json) {
     });
   });
 
-  // Re-render all tabs
-  const curMetric = document.querySelector('.metric-btn.active')?.textContent;
-  const m = {'Units':'qty','GMV':'gmv','Net Revenue':'net_rev'}[curMetric] || 'qty';
-  renderCards();
-  buildRows(m,   'drill-body');
-  buildRows('qty','units-body');
-  buildRows('gmv','gmv-body');
-  buildRows('net_rev','rev-body');
-  if (typeof build7DayRows === 'function') build7DayRows(METRIC7||'qty');
+  // Re-render handled by reRenderAll() called from refreshData()
 }
 
 // ── AUTO REFRESH AT 11AM IST ────────────────────────────────────────

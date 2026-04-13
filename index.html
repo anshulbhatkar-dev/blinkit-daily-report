@@ -104,7 +104,7 @@ iframe#email-preview{width:100%;border:none;height:520px;display:block}
 <div class="header">
   <div>
     <h1><span class="bk-badge">BLINKIT</span> Daily Performance Dashboard</h1>
-    <div class="header-sub">📅 April 2026 MTD &nbsp;·&nbsp; Be Bodywise · Little Joys · Man Matters</div>
+    <div class="header-sub" id="header-sub">📅 MTD &nbsp;·&nbsp; Be Bodywise · Little Joys · Man Matters</div>
   </div>
   <div>
     <button class="refresh-btn" onclick="refreshData()">⟳ Refresh from GSheet</button>
@@ -148,12 +148,12 @@ iframe#email-preview{width:100%;border:none;height:520px;display:block}
     </tr></thead>
     <tbody id="drill-body"></tbody></table>
   </div>
-  <div class="legend">▸ expandable · values in units / ₹L · <span style="color:#79c0ff">Proj</span> = SKU-level extrap · <span style="color:#8b949e"><span id="legend-lmtd"><span id="legend-lmtd">LMTD = Mar 1–5 (same days as Apr MTD)</span></span></span></div>
+  <div class="legend">▸ expandable · values in units / ₹L · <span style="color:#79c0ff">Proj</span> = SKU-level extrap · <span style="color:#8b949e"><span id="legend-lmtd">LMTD = prev month same-day window</span></span></div>
 </div>
 
 <!-- ══════════════ UNITS TAB ══════════════ -->
 <div id="tab-units" class="tab-content">
-  <div class="note"><b>Units DRR</b> — Daily run rate. Mar LMTD = Mar 1–5 for apples-to-apples comparison. Proj DRR from SKU Level sheet col AH.</div>
+  <div class="note"><b>Units DRR</b> — Daily run rate. Prev LMTD = same days as curr MTD for apples-to-apples comparison. Proj DRR from SKU Level sheet col AH.</div>
   <div class="tbl-wrap"><table><thead><tr>
     <th>Brand / Category / SubCat / Product</th>
     <th class="th-prev-drr">Mar DRR</th><th class="th-prev-lmtd">Mar LMTD</th><th class="th-curr-mtd">Apr MTD DRR</th>
@@ -310,11 +310,11 @@ function renderCards() {
       <div class="card-rev">₹${revL}L <span style="font-size:10px;color:#6e7681">NR/day</span>${projL?`<span class="proj-pill">Proj ₹${projL}L</span>`:''}
       </div>
       <div class="card-growth ${parseFloat(rg)>=0?'pos':'neg'}">
-        ${parseFloat(rg)>=0?'↑':'↓'} ${Math.abs(rg)}% vs Mar DRR
+        ${parseFloat(rg)>=0?'↑':'↓'} ${Math.abs(rg)}% vs ${DATA.meta.prev_month_name} DRR
         ${lmtdG!==null?`<span style="color:#6e7681;font-weight:400;margin-left:6px">/ ${parseFloat(lmtdG)>=0?'↑':'↓'} ${Math.abs(lmtdG)}% vs LMTD</span>`:''}
       </div>
       <div class="card-metrics">
-        <div><div class="cm-label">Apr MTD Units</div><div class="cm-val">${Number(d.apr.qty).toLocaleString('en-IN',{maximumFractionDigits:0})}</div></div>
+        <div><div class="cm-label">${DATA.meta.curr_month_name} MTD Units</div><div class="cm-val">${Number(d.apr.qty).toLocaleString('en-IN',{maximumFractionDigits:0})}</div></div>
         <div><div class="cm-label">Proj Units/day</div><div class="cm-val" style="color:#79c0ff">${d.proj?Number(d.proj.proj_units).toLocaleString('en-IN',{maximumFractionDigits:0}):'–'}</div></div>
         <div><div class="cm-label">Tgt Ach (Units)</div><div class="cm-val ${achCls}">${achU}%</div></div>
         <div><div class="cm-label">vs LMTD (Units)</div><div class="cm-val ${parseFloat(qg)>=0?'pos':'neg'}">${parseFloat(qg)>=0?'↑':'↓'} ${Math.abs(qg)}%</div></div>
@@ -551,7 +551,7 @@ function buildEmailHTML() {
               <td colspan="2" style="text-align:right;font-weight:800;font-size:14px;color:${achColor}">${achNr}%</td>
             </tr>
           </table>
-          <div style="font-size:9px;color:#a0aec0;margin-top:4px">Growth vs Mar LMTD · Ach = Proj/Target</div>
+          <div style="font-size:9px;color:#a0aec0;margin-top:4px">Growth vs ${DATA.meta.prev_month_name||'Prev'} LMTD · Ach = Proj/Target</div>
         </td></tr>
       </table>`;
   }
@@ -676,9 +676,9 @@ function buildEmailHTML() {
     <table width="640" style="border-collapse:collapse;font-size:12px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
       <thead><tr style="background:#2d3748;color:#fff">
         <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase">Brand / Category</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Mar DRR</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Mar LMTD</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Apr MTD</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">${DATA.meta.prev_month_name} DRR</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">${DATA.meta.prev_month_name} LMTD</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">${DATA.meta.curr_month_name} MTD</th>
         <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase;color:#90cdf4">Proj</th>
         <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase;color:#fbd38d">Target</th>
         <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Tgt Ach</th>
@@ -693,11 +693,12 @@ function buildEmailHTML() {
   const fmtQty = v => v ? Number(v).toLocaleString('en-IN',{maximumFractionDigits:0}) : '–';
 
   const DASHBOARD_URL = 'https://blinkit-ads-dashboard-zj65.vercel.app/';
-  const aprDays = (()=>{
+  const mtdDays = DATA.meta.apr_days || (()=>{
     const istNow = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
-    const dataDate = new Date(asOf);
-    return !isNaN(dataDate) && dataDate.getMonth()===3 ? dataDate.getDate() : istNow.getDate()-1;
+    return istNow.getDate()-1;
   })();
+  const cMon = DATA.meta.curr_month_name || 'Curr';
+  const pMon = DATA.meta.prev_month_name || 'Prev';
 
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:'Helvetica Neue',Arial,sans-serif;background:#f7fafc;margin:0;padding:20px">
   <table width="700" style="margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);border-collapse:collapse">
@@ -706,7 +707,7 @@ function buildEmailHTML() {
         <span style="color:#fff;font-size:18px;font-weight:800">📦 Blinkit Daily Update</span>
       </a>
       <span style="color:#bee3f8;font-size:11px;display:block;margin-top:3px">
-        As of ${asOf} · Apr 1–${aprDays} (${aprDays} days) · LMTD = Mar 1–${aprDays}
+        As of ${asOf} · ${cMon} 1–${mtdDays} (${mtdDays} days) · LMTD = ${pMon} 1–${mtdDays}
       </span>
       <a href="${DASHBOARD_URL}" style="display:inline-block;margin-top:8px;background:rgba(255,255,255,0.15);color:#fff;font-size:10px;font-weight:600;padding:4px 10px;border-radius:12px;text-decoration:none">🔗 Open Dashboard →</a>
     </td></tr>
@@ -828,114 +829,154 @@ function switchTab(tab, evt) {
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 // ── REFRESH ────────────────────────────────────────────────────────
+// Uses system date ONLY to decide which 2 calendar months to query.
+// All date logic (currM, prevM, mtdDays, LMTD) is derived from the
+// latest date actually present in the fetched data — never from system clock.
 function refreshData() {
   const btn = document.querySelector('.refresh-btn');
   btn.textContent = '⟳ Fetching...'; btn.style.opacity='.6';
-
-  const now   = new Date();
-  const currY = now.getFullYear();
-  const currM = now.getMonth() + 1;               // 1–12
-  const prevM = currM === 1 ? 12 : currM - 1;
-  const prevY = currM === 1 ? currY - 1 : currY;
+  document.getElementById('as-of').textContent = '⏳ Loading from GSheet…';
 
   const SID = DATA.meta.sheet_id;
-  const parse = raw => JSON.parse(raw.substring(raw.indexOf('{'), raw.lastIndexOf('}')+1));
-
-  // New Base: fetch current + prev month rows + any 7-day-tagged rows
-  // year() filter prevents mixing 2025-Apr with 2026-Apr etc.
-  let mf;
-  if (currM === 1)
-    mf = `(year(A)=${currY} and month(A)=1) or (year(A)=${prevY} and month(A)=12)`;
-  else
-    mf = `year(A)=${currY} and (month(A)=${currM} or month(A)=${prevM})`;
-
-  const tql = encodeURIComponent(`select * where B='Blinkit' and ((${mf}) or J is not null)`);
-
-  const urls = {
-    newBase  : `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&gid=1168753412&tq=${tql}`,
-    aopTarget: `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&gid=629606959`,
-    skuLevel : `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&gid=1200688139`
+  const parse = raw => {
+    try {
+      const s = raw.substring(raw.indexOf('{'), raw.lastIndexOf('}')+1);
+      return JSON.parse(s);
+    } catch(e) {
+      console.error('GViz parse error:', e, raw.substring(0,200));
+      throw e;
+    }
   };
 
-  Promise.all(Object.values(urls).map(u => fetch(u).then(r=>r.text()).then(parse)))
+  // Use system date only to build the query window: fetch curr + prev calendar month.
+  // If data is lagged (e.g. today=Apr-13 but latest data=Apr-12), processAllData
+  // will still derive the correct LMTD from the actual max date in data.
+  const sys   = new Date();
+  const sysY  = sys.getFullYear();
+  const sysM  = sys.getMonth() + 1;
+  const sysP  = sysM === 1 ? 12 : sysM - 1;
+  const sysPY = sysM === 1 ? sysY - 1 : sysY;
+
+  // Date filter: curr month + prev month (by year to avoid cross-year collisions)
+  let dateFlt;
+  if (sysM === 1)
+    dateFlt = `(year(A)=${sysY} and month(A)=1) or (year(A)=${sysPY} and month(A)=12)`;
+  else
+    dateFlt = `year(A)=${sysY} and (month(A)=${sysM} or month(A)=${sysP})`;
+
+  // Explicit column select → predictable 0-based indices regardless of sheet width
+  // New Base cols: A=date C=item_id E=GMV F=qty I=brand J=7day_tag K=cat P=product Q=sku U=subcat Z=net_rev
+  // select A,C,E,F,I,J,K,P,Q,U,Z  → idx 0–10
+  const nbCols = 'A,C,E,F,I,J,K,P,Q,U,Z';
+  const nbWhere = `B='Blinkit' and ((${dateFlt}) or J is not null)`;
+  const nbTql   = encodeURIComponent(`select ${nbCols} where ${nbWhere}`);
+
+  // AOP Target: A=sku_code C=platform G=item_id J=unit_tgt K=gmv_tgt L=nr_tgt
+  // select A,C,G,J,K,L where C='Blinkit'  → idx 0–5
+  const tgtTql = encodeURIComponent(`select A,C,G,J,K,L where C='Blinkit'`);
+
+  // SKU Level: A=platform D=item_id AH=proj_drr_units
+  // select A,D,AH where A='Blinkit'  → idx 0–2
+  const skuTql = encodeURIComponent(`select A,D,AH where A='Blinkit'`);
+
+  const urls = [
+    `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&gid=1168753412&tq=${nbTql}`,
+    `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&gid=629606959&tq=${tgtTql}`,
+    `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&gid=1200688139&tq=${skuTql}`
+  ];
+
+  Promise.all(urls.map(u => fetch(u).then(r=>r.text()).then(parse)))
     .then(([nbJson, tgtJson, skuJson]) => {
-      processAllData(nbJson, tgtJson, skuJson, currM, prevM, currY, prevY);
-      const now2 = new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'});
-      document.getElementById('as-of').textContent = 'Live: ' + now2;
+      console.log('GViz rows — newBase:', nbJson.table?.rows?.length,
+                  '| aopTarget:', tgtJson.table?.rows?.length,
+                  '| skuLevel:', skuJson.table?.rows?.length);
+      processAllData(nbJson, tgtJson, skuJson);
       btn.textContent = '⟳ Refresh from GSheet'; btn.style.opacity='1';
     })
     .catch(err => {
-      console.warn('Refresh error:', err);
+      console.error('GSheet fetch failed:', err);
       btn.textContent = '⟳ Refresh from GSheet'; btn.style.opacity='1';
-      document.getElementById('as-of').textContent = 'GSheet unreachable – showing embedded data';
+      document.getElementById('as-of').textContent = '⚠️ GSheet unreachable — check console';
     });
 }
 
 // ── CORE DATA PROCESSOR ────────────────────────────────────────────
-// Sources:
-//   New Base  (GID 1168753412): raw daily sales — date(A),item_id(C),gmv(E),qty(F),brand(I),
-//             7day_tag(J),category(K),product(P),sku_code(Q),subcat(U),net_rev(Z)  [0-indexed]
-//   AOP Target(GID 629606959) : targets  — sku_code(A),platform(C),item_id(G),unit_tgt(J),gmv_tgt(K),nr_tgt(L)
-//   SKU Level (GID 1200688139): projection — platform(A),item_id(D),proj_drr_units(AH=33)
+// GViz column layout after explicit select:
 //
-// Hierarchy: Brand > Category > SubCat > Product
-// DRR = daily run rate.  All DRR values are per-day averages.
-//   curr MTD DRR  = curr month total / days elapsed
-//   prev LMTD DRR = prev month, same days as curr MTD, / same count
-//   prev Full DRR = prev month total / calendar days in prev month
-//   GMV & NR proj = proj_units × (curr month GMV/unit ratio, NR/unit ratio)
-function processAllData(nbJson, tgtJson, skuJson, currM, prevM, currY, prevY) {
+//   New Base (GID 1168753412) — select A,C,E,F,I,J,K,P,Q,U,Z where B='Blinkit' and …
+//     0=date  1=item_id  2=GMV  3=qty  4=brand  5=7day_tag
+//     6=category  7=product  8=sku_code  9=subcat  10=net_rev
+//
+//   AOP Target (GID 629606959) — select A,C,G,J,K,L where C='Blinkit'
+//     0=sku_code  1=platform  2=item_id  3=unit_tgt  4=gmv_tgt  5=nr_tgt
+//
+//   SKU Level (GID 1200688139) — select A,D,AH where A='Blinkit'
+//     0=platform  1=item_id  2=proj_drr_units
+//
+// LMTD definition (fully data-driven):
+//   latestDate = max date found anywhere in New Base rows
+//   currM / currY = month / year of latestDate
+//   mtdDays = day-of-month of latestDate   (e.g. Apr 12 → mtdDays=12)
+//   prevM / prevY = prior calendar month
+//   MTD DRR  = sum(currM, days 1..mtdDays) / mtdDays
+//   LMTD DRR = sum(prevM, days 1..mtdDays) / mtdDays  (same window)
+//   Prev full DRR = sum(prevM, all days) / calendarDays(prevM)
+function processAllData(nbJson, tgtJson, skuJson) {
   const v  = (r,i) => { const c=r.c?.[i]; return (c&&c.v!=null)?c.v:null; };
-  const vn = (r,i) => v(r,i) || 0;
+  const vn = (r,i) => { const x=v(r,i); return (x!=null && !isNaN(x)) ? Number(x) : 0; };
   const vs = (r,i) => { const x=v(r,i); return x!=null?String(x).trim():''; };
   const BRANDS = new Set(['Be Bodywise','Little Joys','Man Matters']);
 
-  // ── 1. Build target map from AOP Target ─────────────────────────
-  // Header in AOP target is row 3 (index 2 in GViz, since GViz uses row 1 as header).
-  // Actual Blinkit data rows have c[2].v === 'Blinkit'.
-  const tgtById  = {};   // item_id (string) → {qty, gmv, nr}
-  const tgtBySku = {};   // sku_code → {qty, gmv, nr}
-  tgtJson.table.rows.forEach(r => {
-    if (vs(r,2) !== 'Blinkit') return;
-    const raw = v(r,6);
-    if (!raw || isNaN(raw)) return;
-    const iid = String(Math.round(raw));
-    const sku = vs(r,0);
-    const entry = { qty: vn(r,9), gmv: vn(r,10), nr: vn(r,11) };
-    if (iid !== '0') tgtById[iid]  = entry;
-    if (sku)        tgtBySku[sku] = entry;
-  });
+  // ── 1. Derive dates from actual data (not system clock) ──────────
+  // Scan all rows; find the latest date that has brand data.
+  let latestTs = 0;
+  const COL = {date:0,iid:1,gmv:2,qty:3,brand:4,tag7:5,cat:6,prod:7,sku:8,sub:9,nr:10};
 
-  // ── 2. Build projection map from SKU Level (col 33 = AH = Projected DRR units)
-  const projById = {};  // item_id → proj_units
-  skuJson.table.rows.forEach(r => {
-    if (vs(r,0) !== 'Blinkit') return;
-    const raw = v(r,3);
-    if (!raw || String(raw).includes('N/A') || String(raw).includes('#')) return;
-    const iid = String(Math.round(raw));
-    projById[iid] = vn(r,33);
-  });
-
-  // ── 3. Process New Base rows ─────────────────────────────────────
-  // With `select *`, column indices match original sheet (0-based):
-  //   0=date, 1=platform, 2=item_id, 4=GMV, 5=qty, 8=brand, 9=7day_tag,
-  //   10=category, 15=product, 16=sku_code, 20=subcat, 25=net_rev
-  const COL = {date:0,iid:2,gmv:4,qty:5,brand:8,tag7:9,cat:10,prod:15,sku:16,sub:20,nr:25};
-
-  // Find max day in curr month to determine MTD window
-  let maxDay = 0;
   nbJson.table.rows.forEach(r => {
+    const brand = vs(r, COL.brand);
+    if (!BRANDS.has(brand)) return;
     const dv = v(r, COL.date);
     if (!dv) return;
     const d = new Date(dv);
-    if (d.getFullYear()===currY && d.getMonth()+1===currM && d.getDate()>maxDay)
-      maxDay = d.getDate();
+    if (!isNaN(d) && d.getTime() > latestTs) latestTs = d.getTime();
   });
-  if (maxDay === 0) maxDay = new Date().getDate() - 1;
-  const mtdDays = maxDay;
-  const prevMonthCalDays = new Date(prevY, prevM, 0).getDate(); // total days in prev month
 
-  // Per-product accumulator
+  const latestDate = latestTs ? new Date(latestTs) : new Date();
+  const currY    = latestDate.getFullYear();
+  const currM    = latestDate.getMonth() + 1;   // 1-12
+  const mtdDays  = latestDate.getDate();          // e.g. 12 if latest = Apr 12
+  const prevM    = currM === 1 ? 12 : currM - 1;
+  const prevY    = currM === 1 ? currY - 1 : currY;
+  const prevMonthCalDays = new Date(prevY, prevM, 0).getDate();
+
+  console.log(`processAllData: latest=${latestDate.toDateString()} currM=${currM} mtdDays=${mtdDays} prevM=${prevM}`);
+
+  // ── 2. Build target map from AOP Target ─────────────────────────
+  // select A,C,G,J,K,L → 0=sku 1=platform 2=item_id 3=unit_tgt 4=gmv_tgt 5=nr_tgt
+  const tgtById  = {};
+  const tgtBySku = {};
+  tgtJson.table.rows.forEach(r => {
+    const raw = v(r,2);
+    if (!raw) return;
+    const iid = String(Math.round(Number(raw)));
+    const sku = vs(r,0);
+    const entry = { qty: vn(r,3), gmv: vn(r,4), nr: vn(r,5) };
+    if (iid && iid !== '0') tgtById[iid]  = entry;
+    if (sku)                tgtBySku[sku] = entry;
+  });
+
+  // ── 3. Build projection map from SKU Level ───────────────────────
+  // select A,D,AH → 0=platform 1=item_id 2=proj_drr_units
+  const projById = {};
+  skuJson.table.rows.forEach(r => {
+    const raw = v(r,1);
+    if (!raw) return;
+    const iid = String(Math.round(Number(raw)));
+    const proj = vn(r,2);
+    if (iid && iid !== '0' && proj > 0) projById[iid] = proj;
+  });
+
+  // ── 4. Process New Base rows ─────────────────────────────────────
   const prods = {};
   const l7Dates = [], p7Dates = [];
 
@@ -945,46 +986,43 @@ function processAllData(nbJson, tgtJson, skuJson, currM, prevM, currY, prevY) {
     const dv = v(r, COL.date);
     if (!dv) return;
     const d   = new Date(dv);
+    if (isNaN(d)) return;
     const dY  = d.getFullYear();
     const dM  = d.getMonth() + 1;
     const dD  = d.getDate();
     const tag = vs(r, COL.tag7);
     const rawId = v(r, COL.iid);
     if (!rawId) return;
-    const iid = String(Math.round(rawId));
+    const iid = String(Math.round(Number(rawId)));
     const qty = vn(r, COL.qty);
     const gmv = vn(r, COL.gmv);
     const nr  = vn(r, COL.nr);
 
     if (!prods[iid]) prods[iid] = {
       name: vs(r,COL.prod), brand, cat: vs(r,COL.cat), sub: vs(r,COL.sub), sku: vs(r,COL.sku),
-      // MTD totals (curr month)
-      cQty:0, cGmv:0, cNr:0,
-      // LMTD totals (prev month, same days as MTD)
-      lQty:0, lGmv:0, lNr:0,
-      // Prev month ALL days (for full-month DRR)
-      pQty:0, pGmv:0, pNr:0, pDays: new Set(),
-      // 7-day
-      l7q:0,l7g:0,l7n:0, p7q:0,p7g:0,p7n:0
+      cQty:0, cGmv:0, cNr:0,       // MTD totals (curr month, days 1..mtdDays)
+      lQty:0, lGmv:0, lNr:0,       // LMTD totals (prev month, days 1..mtdDays)
+      pQty:0, pGmv:0, pNr:0,       // prev month ALL days (for full-month DRR)
+      l7q:0,  l7g:0,  l7n:0,       // last 7 days
+      p7q:0,  p7g:0,  p7n:0        // prev 7 days
     };
     const p = prods[iid];
-    // Keep name/meta current
     if (vs(r,COL.prod)) p.name = vs(r,COL.prod);
     if (vs(r,COL.cat))  p.cat  = vs(r,COL.cat);
     if (vs(r,COL.sub))  p.sub  = vs(r,COL.sub);
     if (vs(r,COL.sku))  p.sku  = vs(r,COL.sku);
 
-    // Current month MTD
+    // MTD: curr month, day 1..mtdDays
     if (dY===currY && dM===currM && dD<=mtdDays)
       { p.cQty+=qty; p.cGmv+=gmv; p.cNr+=nr; }
 
-    // Prev month LMTD (same day range as MTD)
+    // LMTD: prev month, SAME day window as MTD (day 1..mtdDays)
     if (dY===prevY && dM===prevM && dD<=mtdDays)
       { p.lQty+=qty; p.lGmv+=gmv; p.lNr+=nr; }
 
-    // Prev month ALL days
+    // Prev full month: all days
     if (dY===prevY && dM===prevM)
-      { p.pQty+=qty; p.pGmv+=gmv; p.pNr+=nr; p.pDays.add(dD); }
+      { p.pQty+=qty; p.pGmv+=gmv; p.pNr+=nr; }
 
     // 7-day tags
     if (tag==='Last 7 Days')     { p.l7q+=qty; p.l7g+=gmv; p.l7n+=nr; l7Dates.push(d); }
@@ -1087,8 +1125,10 @@ function processAllData(nbJson, tgtJson, skuJson, currM, prevM, currY, prevY) {
   DATA.seven_day = sd;
   const cName = MONTH_NAMES[currM-1];
   const pName = MONTH_NAMES[prevM-1];
+  // as_of = the actual latest date from data (not system clock)
+  const asOfStr = latestDate.toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'});
   Object.assign(DATA.meta, {
-    as_of: new Date().toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata'}),
+    as_of: asOfStr,
     apr_days: mtdDays,
     curr_month: currM, prev_month: prevM,
     curr_month_name: cName, prev_month_name: pName,
@@ -1101,9 +1141,12 @@ function processAllData(nbJson, tgtJson, skuJson, currM, prevM, currY, prevY) {
   document.querySelectorAll('.th-prev-lmtd').forEach(el => el.textContent = pName+' LMTD');
   document.querySelectorAll('.th-curr-mtd').forEach(el  => el.textContent = cName+' MTD DRR');
   const legendEl = document.getElementById('legend-lmtd');
-  if (legendEl) legendEl.textContent = `LMTD = ${pName} 1–${mtdDays} (same ${mtdDays} days as ${cName} MTD)`;
+  if (legendEl) legendEl.textContent =
+    `LMTD = ${pName} 1–${mtdDays} (same ${mtdDays} days as ${cName} 1–${mtdDays})`;
   document.querySelector('.header-sub').innerHTML =
-    `📅 ${cName} ${new Date(currY,currM-1,1).getFullYear()} MTD &nbsp;·&nbsp; Be Bodywise · Little Joys · Man Matters`;
+    `📅 ${cName} ${currY} MTD (1–${mtdDays}) &nbsp;·&nbsp; Be Bodywise · Little Joys · Man Matters`;
+  document.getElementById('as-of').textContent =
+    `Data as of: ${asOfStr} · ${mtdDays} ${cName} days · LMTD = ${pName} 1–${mtdDays}`;
 
   reRenderAll();
 }
@@ -1133,15 +1176,18 @@ function scheduleAutoRefresh() {
 
 // ── INIT ───────────────────────────────────────────────────────────
 function init() {
-  const m = DATA.meta;
-  document.getElementById('as-of').textContent = `As of: ${m.as_of} · ${m.apr_days} Apr days`;
-  renderCards();
-  buildRows('qty','drill-body');
-  buildRows('qty','units-body');
-  buildRows('gmv','gmv-body');
-  buildRows('net_rev','rev-body');
-  // Auto-refresh from GSheet on page load
-  setTimeout(refreshData, 2000);
+  // Show loading state immediately — no pre-rendered zeros
+  document.getElementById('as-of').textContent = '⏳ Loading from GSheet…';
+  const now = new Date();
+  const currName = MONTH_NAMES[now.getMonth()];
+  const prevName = MONTH_NAMES[now.getMonth()===0?11:now.getMonth()-1];
+  document.getElementById('header-sub').innerHTML =
+    `📅 ${currName} ${now.getFullYear()} MTD &nbsp;·&nbsp; Be Bodywise · Little Joys · Man Matters`;
+  document.querySelectorAll('.th-prev-drr').forEach(el  => el.textContent = prevName+' DRR');
+  document.querySelectorAll('.th-prev-lmtd').forEach(el => el.textContent = prevName+' LMTD');
+  document.querySelectorAll('.th-curr-mtd').forEach(el  => el.textContent = currName+' MTD DRR');
+  // Fetch immediately — no setTimeout delay
+  refreshData();
   // Schedule daily 11am IST auto-refresh
   scheduleAutoRefresh();
 }

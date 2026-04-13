@@ -828,6 +828,34 @@ function switchTab(tab, evt) {
 // ── MONTH / YEAR HELPERS ──────────────────────────────────────────
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+// ── JSONP HELPER (bypasses CORS when opened as file://) ────────────
+function gvizJsonp(url) {
+  return new Promise((resolve, reject) => {
+    const cb = 'gviz_cb_' + Math.random().toString(36).slice(2);
+    const timeout = setTimeout(() => {
+      delete window[cb];
+      script.remove();
+      reject(new Error('GViz timeout: ' + url.substring(0,80)));
+    }, 15000);
+    window[cb] = data => {
+      clearTimeout(timeout);
+      delete window[cb];
+      script.remove();
+      resolve(data);
+    };
+    const script = document.createElement('script');
+    // GViz JSONP: replace tqx=out:json with responseHandler callback
+    script.src = url.replace('tqx=out:json', `tqx=out:json;responseHandler:${cb}`);
+    script.onerror = () => {
+      clearTimeout(timeout);
+      delete window[cb];
+      script.remove();
+      reject(new Error('Script load error: ' + url.substring(0,80)));
+    };
+    document.head.appendChild(script);
+  });
+}
+
 // ── REFRESH ────────────────────────────────────────────────────────
 // Uses system date ONLY to decide which 2 calendar months to query.
 // All date logic (currM, prevM, mtdDays, LMTD) is derived from the
@@ -838,26 +866,15 @@ function refreshData() {
   document.getElementById('as-of').textContent = '⏳ Loading from GSheet…';
 
   const SID = DATA.meta.sheet_id;
-  const parse = raw => {
-    try {
-      const s = raw.substring(raw.indexOf('{'), raw.lastIndexOf('}')+1);
-      return JSON.parse(s);
-    } catch(e) {
-      console.error('GViz parse error:', e, raw.substring(0,200));
-      throw e;
-    }
-  };
 
   // Use system date only to build the query window: fetch curr + prev calendar month.
-  // If data is lagged (e.g. today=Apr-13 but latest data=Apr-12), processAllData
-  // will still derive the correct LMTD from the actual max date in data.
   const sys   = new Date();
   const sysY  = sys.getFullYear();
   const sysM  = sys.getMonth() + 1;
   const sysP  = sysM === 1 ? 12 : sysM - 1;
   const sysPY = sysM === 1 ? sysY - 1 : sysY;
 
-  // Date filter: curr month + prev month (by year to avoid cross-year collisions)
+  // Date filter: curr month + prev month
   let dateFlt;
   if (sysM === 1)
     dateFlt = `(year(A)=${sysY} and month(A)=1) or (year(A)=${sysPY} and month(A)=12)`;
@@ -865,37 +882,43 @@ function refreshData() {
     dateFlt = `year(A)=${sysY} and (month(A)=${sysM} or month(A)=${sysP})`;
 
   // ── New Base (GID 1168753412) ─────────────────────────────────────
-  // Actual headers (row 2): A=date B=Platform C=item_id E=MRP_GMV F=qty_sold
-  //   I=Brand K=UpdateCategory P=NamingConvention Q=UniwareSKU U=SubCat Z=NetRevenue
-  // J = "Days" (always null) — NO 7day_tag column exists. 7-day computed from dates.
-  // select A,C,E,F,I,K,P,Q,U,Z  → idx 0–9
+  // select A,C,E,F,I,K,P,Q,U,Z where B='Blinkit' → idx 0–9
   const nbCols  = 'A,C,E,F,I,K,P,Q,U,Z';
   const nbWhere = `B='Blinkit' and (${dateFlt})`;
   const nbTql   = encodeURIComponent(`select ${nbCols} where ${nbWhere}`);
 
-  // ── AOP Target (GID 629606959) ────────────────────────────────────
-  // Actual header is ROW 3 (rows 1-2 are notes/junk). Add headers=3 so GViz skips them.
-  // Row 3 cols: A=child_SKU C=Channel_name G=SKU(item_id) J=unit_tgt K=gmv_tgt L=nr_tgt
-  // select A,C,G,J,K,L where C='Blinkit'  → idx 0–5
+  // ── AOP Target (GID 629606959, headers=3) ─────────────────────────
+  // select A,C,G,J,K,L where C='Blinkit' → idx 0–5
   const tgtTql  = encodeURIComponent(`select A,C,G,J,K,L where C='Blinkit'`);
 
-  // ── SKU Level (GID 1200688139) ────────────────────────────────────
-  // Actual header is ROW 6 (rows 1-5 are empty/subtotals). Add headers=6.
-  // Row 6 cols: A=Platform D=Platform_SKU(item_id) AH=Projected_DRR
-  // select A,D,AH where A='Blinkit'  → idx 0–2
+  // ── SKU Level (GID 1200688139, headers=6) ─────────────────────────
+  // select A,D,AH where A='Blinkit' → idx 0–2
   const skuTql  = encodeURIComponent(`select A,D,AH where A='Blinkit'`);
 
+  const BASE = `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json`;
   const urls = [
-    `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&gid=1168753412&tq=${nbTql}`,
-    `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&gid=629606959&headers=3&tq=${tgtTql}`,
-    `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&gid=1200688139&headers=6&tq=${skuTql}`
+    `${BASE}&gid=1168753412&tq=${nbTql}`,
+    `${BASE}&gid=629606959&headers=3&tq=${tgtTql}`,
+    `${BASE}&gid=1200688139&headers=6&tq=${skuTql}`
   ];
 
-  Promise.all(urls.map(u => fetch(u).then(r=>r.text()).then(parse)))
+  Promise.all(urls.map(gvizJsonp))
     .then(([nbJson, tgtJson, skuJson]) => {
-      console.log('GViz rows — newBase:', nbJson.table?.rows?.length,
-                  '| aopTarget:', tgtJson.table?.rows?.length,
-                  '| skuLevel:', skuJson.table?.rows?.length);
+      const nbRows  = nbJson.table?.rows?.length  || 0;
+      const tgtRows = tgtJson.table?.rows?.length || 0;
+      const skuRows = skuJson.table?.rows?.length || 0;
+      console.log('GViz rows — newBase:', nbRows, '| aopTarget:', tgtRows, '| skuLevel:', skuRows);
+      if (nbRows > 0) {
+        const r0 = nbJson.table.rows[0];
+        console.log('newBase row[0]:', JSON.stringify(r0));
+        console.log('  date:', r0.c?.[0]?.v, ' brand:', r0.c?.[4]?.v, ' qty:', r0.c?.[3]?.v, ' nr:', r0.c?.[9]?.v);
+      } else {
+        console.warn('newBase: 0 rows — check WHERE clause or GID');
+      }
+      if (tgtRows > 0) console.log('aopTarget row[0]:', JSON.stringify(tgtJson.table.rows[0]));
+      else console.warn('aopTarget: 0 rows — check headers=3 or column refs');
+      if (skuRows > 0) console.log('skuLevel row[0]:', JSON.stringify(skuJson.table.rows[0]));
+      else console.warn('skuLevel: 0 rows — check headers=6 or column refs');
       processAllData(nbJson, tgtJson, skuJson);
       btn.textContent = '⟳ Refresh from GSheet'; btn.style.opacity='1';
     })
@@ -932,17 +955,31 @@ function processAllData(nbJson, tgtJson, skuJson) {
   const vs = (r,i) => { const x=v(r,i); return x!=null?String(x).trim():''; };
   const BRANDS = new Set(['Be Bodywise','Little Joys','Man Matters']);
 
+  // GViz returns dates as "Date(2026,3,12)" strings (month is 0-indexed!)
+  // new Date("Date(2026,3,12)") = Invalid Date — must parse manually.
+  function parseGvizDate(dv) {
+    if (dv == null) return null;
+    const s = String(dv);
+    const m = s.match(/Date\((\d+),(\d+),(\d+)\)/);
+    if (m) return new Date(+m[1], +m[2], +m[3]);   // month is already 0-indexed
+    const d = new Date(s);
+    return isNaN(d) ? null : d;
+  }
+
   // Column map — select A,C,E,F,I,K,P,Q,U,Z  (10 columns, 0-indexed)
   const COL = {date:0, iid:1, gmv:2, qty:3, brand:4, cat:5, prod:6, sku:7, sub:8, nr:9};
 
   // ── 1. Find latestDate from actual data ──────────────────────────
+  // Log unique brand values actually present (first 20 rows) for diagnosis
+  const brandsSeen = new Set();
+  nbJson.table.rows.slice(0,50).forEach(r => brandsSeen.add(vs(r, COL.brand)));
+  console.log('Brands seen in newBase col4 (first 50 rows):', [...brandsSeen]);
+
   let latestTs = 0;
   nbJson.table.rows.forEach(r => {
     if (!BRANDS.has(vs(r, COL.brand))) return;
-    const dv = v(r, COL.date);
-    if (!dv) return;
-    const d = new Date(dv);
-    if (!isNaN(d) && d.getTime() > latestTs) latestTs = d.getTime();
+    const d = parseGvizDate(v(r, COL.date));
+    if (d && d.getTime() > latestTs) latestTs = d.getTime();
   });
 
   // Fallback: if GSheet returns no brand rows, use yesterday in IST as best guess
@@ -1012,10 +1049,8 @@ function processAllData(nbJson, tgtJson, skuJson) {
   nbJson.table.rows.forEach(r => {
     const brand = vs(r, COL.brand);
     if (!BRANDS.has(brand)) return;
-    const dv = v(r, COL.date);
-    if (!dv) return;
-    const d   = new Date(dv);
-    if (isNaN(d)) return;
+    const d   = parseGvizDate(v(r, COL.date));
+    if (!d) return;
     const dTs = d.getTime();
     const dY  = d.getFullYear();
     const dM  = d.getMonth() + 1;

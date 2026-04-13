@@ -864,25 +864,31 @@ function refreshData() {
   else
     dateFlt = `year(A)=${sysY} and (month(A)=${sysM} or month(A)=${sysP})`;
 
-  // Explicit column select → predictable 0-based indices regardless of sheet width
-  // New Base cols: A=date C=item_id E=GMV F=qty I=brand J=7day_tag K=cat P=product Q=sku U=subcat Z=net_rev
-  // select A,C,E,F,I,J,K,P,Q,U,Z  → idx 0–10
-  const nbCols = 'A,C,E,F,I,J,K,P,Q,U,Z';
-  const nbWhere = `B='Blinkit' and ((${dateFlt}) or J is not null)`;
+  // ── New Base (GID 1168753412) ─────────────────────────────────────
+  // Actual headers (row 2): A=date B=Platform C=item_id E=MRP_GMV F=qty_sold
+  //   I=Brand K=UpdateCategory P=NamingConvention Q=UniwareSKU U=SubCat Z=NetRevenue
+  // J = "Days" (always null) — NO 7day_tag column exists. 7-day computed from dates.
+  // select A,C,E,F,I,K,P,Q,U,Z  → idx 0–9
+  const nbCols  = 'A,C,E,F,I,K,P,Q,U,Z';
+  const nbWhere = `B='Blinkit' and (${dateFlt})`;
   const nbTql   = encodeURIComponent(`select ${nbCols} where ${nbWhere}`);
 
-  // AOP Target: A=sku_code C=platform G=item_id J=unit_tgt K=gmv_tgt L=nr_tgt
+  // ── AOP Target (GID 629606959) ────────────────────────────────────
+  // Actual header is ROW 3 (rows 1-2 are notes/junk). Add headers=3 so GViz skips them.
+  // Row 3 cols: A=child_SKU C=Channel_name G=SKU(item_id) J=unit_tgt K=gmv_tgt L=nr_tgt
   // select A,C,G,J,K,L where C='Blinkit'  → idx 0–5
-  const tgtTql = encodeURIComponent(`select A,C,G,J,K,L where C='Blinkit'`);
+  const tgtTql  = encodeURIComponent(`select A,C,G,J,K,L where C='Blinkit'`);
 
-  // SKU Level: A=platform D=item_id AH=proj_drr_units
+  // ── SKU Level (GID 1200688139) ────────────────────────────────────
+  // Actual header is ROW 6 (rows 1-5 are empty/subtotals). Add headers=6.
+  // Row 6 cols: A=Platform D=Platform_SKU(item_id) AH=Projected_DRR
   // select A,D,AH where A='Blinkit'  → idx 0–2
-  const skuTql = encodeURIComponent(`select A,D,AH where A='Blinkit'`);
+  const skuTql  = encodeURIComponent(`select A,D,AH where A='Blinkit'`);
 
   const urls = [
     `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&gid=1168753412&tq=${nbTql}`,
-    `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&gid=629606959&tq=${tgtTql}`,
-    `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&gid=1200688139&tq=${skuTql}`
+    `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&gid=629606959&headers=3&tq=${tgtTql}`,
+    `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&gid=1200688139&headers=6&tq=${skuTql}`
   ];
 
   Promise.all(urls.map(u => fetch(u).then(r=>r.text()).then(parse)))
@@ -903,82 +909,105 @@ function refreshData() {
 // ── CORE DATA PROCESSOR ────────────────────────────────────────────
 // GViz column layout after explicit select:
 //
-//   New Base (GID 1168753412) — select A,C,E,F,I,J,K,P,Q,U,Z where B='Blinkit' and …
-//     0=date  1=item_id  2=GMV  3=qty  4=brand  5=7day_tag
-//     6=category  7=product  8=sku_code  9=subcat  10=net_rev
+//   New Base (GID 1168753412) — select A,C,E,F,I,K,P,Q,U,Z where B='Blinkit'
+//     0=date  1=item_id  2=MRP_GMV  3=qty_sold  4=brand
+//     5=UpdateCategory  6=NamingConvention  7=UniwareSKU  8=SubCat  9=NetRevenue
+//     NOTE: No 7day_tag column in New Base. 7-day is computed from date ranges.
 //
-//   AOP Target (GID 629606959) — select A,C,G,J,K,L where C='Blinkit'
-//     0=sku_code  1=platform  2=item_id  3=unit_tgt  4=gmv_tgt  5=nr_tgt
+//   AOP Target (GID 629606959, headers=3) — select A,C,G,J,K,L where C='Blinkit'
+//     0=child_SKU  1=Channel_name  2=item_id(SKU col)  3=unit_tgt  4=gmv_tgt  5=nr_tgt
 //
-//   SKU Level (GID 1200688139) — select A,D,AH where A='Blinkit'
-//     0=platform  1=item_id  2=proj_drr_units
+//   SKU Level (GID 1200688139, headers=6) — select A,D,AH where A='Blinkit'
+//     0=Platform  1=Platform_SKU(item_id)  2=Projected_DRR
 //
 // LMTD definition (fully data-driven):
-//   latestDate = max date found anywhere in New Base rows
+//   latestDate = max date found in New Base rows with valid brand
 //   currM / currY = month / year of latestDate
-//   mtdDays = day-of-month of latestDate   (e.g. Apr 12 → mtdDays=12)
-//   prevM / prevY = prior calendar month
-//   MTD DRR  = sum(currM, days 1..mtdDays) / mtdDays
-//   LMTD DRR = sum(prevM, days 1..mtdDays) / mtdDays  (same window)
-//   Prev full DRR = sum(prevM, all days) / calendarDays(prevM)
+//   mtdDays = day-of-month of latestDate   (Apr 12 → mtdDays=12)
+//   LMTD = prev month days 1..mtdDays  (May 18 → LMTD = Apr 1–18)
+//   7-day: L7D = latestDate-6 … latestDate; P7D = latestDate-13 … latestDate-7
 function processAllData(nbJson, tgtJson, skuJson) {
   const v  = (r,i) => { const c=r.c?.[i]; return (c&&c.v!=null)?c.v:null; };
   const vn = (r,i) => { const x=v(r,i); return (x!=null && !isNaN(x)) ? Number(x) : 0; };
   const vs = (r,i) => { const x=v(r,i); return x!=null?String(x).trim():''; };
   const BRANDS = new Set(['Be Bodywise','Little Joys','Man Matters']);
 
-  // ── 1. Derive dates from actual data (not system clock) ──────────
-  // Scan all rows; find the latest date that has brand data.
-  let latestTs = 0;
-  const COL = {date:0,iid:1,gmv:2,qty:3,brand:4,tag7:5,cat:6,prod:7,sku:8,sub:9,nr:10};
+  // Column map — select A,C,E,F,I,K,P,Q,U,Z  (10 columns, 0-indexed)
+  const COL = {date:0, iid:1, gmv:2, qty:3, brand:4, cat:5, prod:6, sku:7, sub:8, nr:9};
 
+  // ── 1. Find latestDate from actual data ──────────────────────────
+  let latestTs = 0;
   nbJson.table.rows.forEach(r => {
-    const brand = vs(r, COL.brand);
-    if (!BRANDS.has(brand)) return;
+    if (!BRANDS.has(vs(r, COL.brand))) return;
     const dv = v(r, COL.date);
     if (!dv) return;
     const d = new Date(dv);
     if (!isNaN(d) && d.getTime() > latestTs) latestTs = d.getTime();
   });
 
-  const latestDate = latestTs ? new Date(latestTs) : new Date();
+  // Fallback: if GSheet returns no brand rows, use yesterday in IST as best guess
+  if (!latestTs) {
+    const ist = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
+    ist.setDate(ist.getDate() - 1);
+    latestTs = ist.getTime();
+    console.warn('No brand rows found in GSheet — using yesterday as fallback date');
+  }
+
+  const latestDate = new Date(latestTs);
   const currY    = latestDate.getFullYear();
-  const currM    = latestDate.getMonth() + 1;   // 1-12
-  const mtdDays  = latestDate.getDate();          // e.g. 12 if latest = Apr 12
+  const currM    = latestDate.getMonth() + 1;
+  const mtdDays  = latestDate.getDate();           // e.g. 12 if latest = Apr 12
   const prevM    = currM === 1 ? 12 : currM - 1;
   const prevY    = currM === 1 ? currY - 1 : currY;
   const prevMonthCalDays = new Date(prevY, prevM, 0).getDate();
 
+  // 7-day windows (timestamps for fast comparison)
+  const DAY_MS   = 86400000;
+  const l7EndTs  = latestTs;
+  const l7StartTs = latestTs - 6 * DAY_MS;   // last 7 days inclusive
+  const p7EndTs  = latestTs - 7 * DAY_MS;
+  const p7StartTs = latestTs - 13 * DAY_MS;  // 7 days before L7D
+
   console.log(`processAllData: latest=${latestDate.toDateString()} currM=${currM} mtdDays=${mtdDays} prevM=${prevM}`);
+  console.log(`  L7D: ${new Date(l7StartTs).toDateString()} – ${new Date(l7EndTs).toDateString()}`);
+  console.log(`  P7D: ${new Date(p7StartTs).toDateString()} – ${new Date(p7EndTs).toDateString()}`);
 
   // ── 2. Build target map from AOP Target ─────────────────────────
-  // select A,C,G,J,K,L → 0=sku 1=platform 2=item_id 3=unit_tgt 4=gmv_tgt 5=nr_tgt
+  // select A,C,G,J,K,L (headers=3) → 0=child_SKU 1=Channel 2=item_id 3=unit_tgt 4=gmv_tgt 5=nr_tgt
   const tgtById  = {};
   const tgtBySku = {};
   tgtJson.table.rows.forEach(r => {
-    const raw = v(r,2);
+    const raw = v(r,2);   // item_id in col G → index 2
     if (!raw) return;
-    const iid = String(Math.round(Number(raw)));
+    const rawNum = Number(String(raw).replace(/[^0-9.]/g,''));
+    if (!rawNum || isNaN(rawNum)) return;
+    const iid = String(Math.round(rawNum));
     const sku = vs(r,0);
     const entry = { qty: vn(r,3), gmv: vn(r,4), nr: vn(r,5) };
     if (iid && iid !== '0') tgtById[iid]  = entry;
     if (sku)                tgtBySku[sku] = entry;
   });
+  console.log(`  Targets loaded: ${Object.keys(tgtById).length} by item_id, ${Object.keys(tgtBySku).length} by SKU`);
 
   // ── 3. Build projection map from SKU Level ───────────────────────
-  // select A,D,AH → 0=platform 1=item_id 2=proj_drr_units
+  // select A,D,AH (headers=6) → 0=Platform 1=item_id 2=Projected_DRR
   const projById = {};
   skuJson.table.rows.forEach(r => {
-    const raw = v(r,1);
+    if (vs(r,0) !== 'Blinkit') return;
+    const raw = v(r,1);   // Platform SKU = item_id
     if (!raw) return;
-    const iid = String(Math.round(Number(raw)));
+    const rawNum = Number(String(raw).replace(/[^0-9.]/g,''));
+    if (!rawNum || isNaN(rawNum)) return;
+    const iid = String(Math.round(rawNum));
     const proj = vn(r,2);
     if (iid && iid !== '0' && proj > 0) projById[iid] = proj;
   });
+  console.log(`  Projections loaded: ${Object.keys(projById).length} SKUs`);
 
   // ── 4. Process New Base rows ─────────────────────────────────────
+  // select A,C,E,F,I,K,P,Q,U,Z → COL mapping above
   const prods = {};
-  const l7Dates = [], p7Dates = [];
+  let rowsProcessed = 0;
 
   nbJson.table.rows.forEach(r => {
     const brand = vs(r, COL.brand);
@@ -987,36 +1016,42 @@ function processAllData(nbJson, tgtJson, skuJson) {
     if (!dv) return;
     const d   = new Date(dv);
     if (isNaN(d)) return;
+    const dTs = d.getTime();
     const dY  = d.getFullYear();
     const dM  = d.getMonth() + 1;
     const dD  = d.getDate();
-    const tag = vs(r, COL.tag7);
     const rawId = v(r, COL.iid);
     if (!rawId) return;
     const iid = String(Math.round(Number(rawId)));
+    if (!iid || iid === '0') return;
     const qty = vn(r, COL.qty);
     const gmv = vn(r, COL.gmv);
     const nr  = vn(r, COL.nr);
+    rowsProcessed++;
 
     if (!prods[iid]) prods[iid] = {
-      name: vs(r,COL.prod), brand, cat: vs(r,COL.cat), sub: vs(r,COL.sub), sku: vs(r,COL.sku),
-      cQty:0, cGmv:0, cNr:0,       // MTD totals (curr month, days 1..mtdDays)
-      lQty:0, lGmv:0, lNr:0,       // LMTD totals (prev month, days 1..mtdDays)
-      pQty:0, pGmv:0, pNr:0,       // prev month ALL days (for full-month DRR)
-      l7q:0,  l7g:0,  l7n:0,       // last 7 days
-      p7q:0,  p7g:0,  p7n:0        // prev 7 days
+      name: vs(r,COL.prod), brand,
+      cat:  vs(r,COL.cat),
+      sub:  vs(r,COL.sub),
+      sku:  vs(r,COL.sku),
+      cQty:0, cGmv:0, cNr:0,   // curr month MTD (days 1..mtdDays)
+      lQty:0, lGmv:0, lNr:0,   // prev month LMTD (days 1..mtdDays)
+      pQty:0, pGmv:0, pNr:0,   // prev month ALL days (full-month DRR)
+      l7q:0,  l7g:0,  l7n:0,   // last 7 days ending latestDate
+      p7q:0,  p7g:0,  p7n:0    // prior 7 days (8–14 days before latestDate)
     };
     const p = prods[iid];
+    // Always keep freshest name/category metadata
     if (vs(r,COL.prod)) p.name = vs(r,COL.prod);
     if (vs(r,COL.cat))  p.cat  = vs(r,COL.cat);
     if (vs(r,COL.sub))  p.sub  = vs(r,COL.sub);
     if (vs(r,COL.sku))  p.sku  = vs(r,COL.sku);
 
-    // MTD: curr month, day 1..mtdDays
+    // MTD: curr month, days 1..mtdDays
     if (dY===currY && dM===currM && dD<=mtdDays)
       { p.cQty+=qty; p.cGmv+=gmv; p.cNr+=nr; }
 
-    // LMTD: prev month, SAME day window as MTD (day 1..mtdDays)
+    // LMTD: prev month, SAME day window (days 1..mtdDays)
     if (dY===prevY && dM===prevM && dD<=mtdDays)
       { p.lQty+=qty; p.lGmv+=gmv; p.lNr+=nr; }
 
@@ -1024,10 +1059,15 @@ function processAllData(nbJson, tgtJson, skuJson) {
     if (dY===prevY && dM===prevM)
       { p.pQty+=qty; p.pGmv+=gmv; p.pNr+=nr; }
 
-    // 7-day tags
-    if (tag==='Last 7 Days')     { p.l7q+=qty; p.l7g+=gmv; p.l7n+=nr; l7Dates.push(d); }
-    if (tag==='Previous 7 Days') { p.p7q+=qty; p.p7g+=gmv; p.p7n+=nr; p7Dates.push(d); }
+    // L7D: last 7 days ending on latestDate (date-range, no tag needed)
+    if (dTs >= l7StartTs && dTs <= l7EndTs)
+      { p.l7q+=qty; p.l7g+=gmv; p.l7n+=nr; }
+
+    // P7D: 7 days before the L7D window
+    if (dTs >= p7StartTs && dTs <= p7EndTs)
+      { p.p7q+=qty; p.p7g+=gmv; p.p7n+=nr; }
   });
+  console.log(`  Rows processed: ${rowsProcessed} | Products found: ${Object.keys(prods).length}`);
 
   // ── 4. Build hierarchy ───────────────────────────────────────────
   const mkMetrics = () => ({qty:0,gmv:0,net_rev:0});
@@ -1115,10 +1155,10 @@ function processAllData(nbJson, tgtJson, skuJson) {
 
   // ── 6. Compute 7-day date labels ─────────────────────────────────
   const fmtD = d => d ? d.toLocaleDateString('en-IN',{day:'numeric',month:'short'}) : '';
-  const l7Min = l7Dates.length ? new Date(Math.min(...l7Dates)) : null;
-  const l7Max = l7Dates.length ? new Date(Math.max(...l7Dates)) : null;
-  const p7Min = p7Dates.length ? new Date(Math.min(...p7Dates)) : null;
-  const p7Max = p7Dates.length ? new Date(Math.max(...p7Dates)) : null;
+  const l7Min = new Date(l7StartTs);
+  const l7Max = new Date(l7EndTs);
+  const p7Min = new Date(p7StartTs);
+  const p7Max = new Date(p7EndTs);
 
   // ── 7. Write back to DATA ─────────────────────────────────────────
   DATA.hierarchy = h;

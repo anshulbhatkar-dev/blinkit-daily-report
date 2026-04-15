@@ -108,6 +108,11 @@ iframe#email-preview{width:100%;border:none;height:520px;display:block}
 .ci-brand{font-size:9px;color:#6e7681;margin-top:2px}
 .ci-pct{font-size:14px;font-weight:800}
 .ci-nr{font-size:10px;color:#8b949e;margin-top:2px}
+.pulse-filters{background:#161b27;border:1px solid #21262d;border-radius:8px;padding:10px 14px;margin-bottom:12px}
+.filter-label{font-size:10px;font-weight:700;color:#6e7681;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+.filter-pill{padding:3px 10px;border-radius:12px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid #30363d;background:transparent;color:#8b949e;transition:all .12s}
+.filter-pill.fp-active{background:#1f6feb;color:#fff;border-color:#1f6feb}
+.sort-icon{font-size:9px;color:#58a6ff;margin-left:3px}
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -233,7 +238,7 @@ iframe#email-preview{width:100%;border:none;height:520px;display:block}
   <div class="cards" id="pulse-brand-cards"></div>
 
   <!-- Spike / Drop Callouts -->
-  <div class="section-hdr">Movement Callouts — WoW % <span style="font-weight:400;font-size:9px;color:#6e7681">products with yesterday NR &gt; 0 · ranked by WoW%</span></div>
+  <div class="section-hdr">Movement Callouts <span style="font-weight:400;font-size:9px;color:#6e7681">ranked by Impact Score = |WoW%| × √base · filters out small-base noise</span></div>
   <div class="callout-grid">
     <div class="callout-box">
       <div style="font-size:10px;font-weight:700;color:#3fb950;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">🚀 Top 3 Spikes</div>
@@ -245,24 +250,35 @@ iframe#email-preview{width:100%;border:none;height:520px;display:block}
     </div>
   </div>
 
-  <!-- Movement Table -->
-  <div class="section-hdr">Movement Detail <span style="font-weight:400;font-size:9px;color:#6e7681">click to expand · Brand › Category › SubCat › Product</span></div>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <div class="metric-sel" id="pulse-metric-sel">
-      <button class="metric-btn active" onclick="setPulseMetric('net_rev',event)">Net Revenue</button>
-      <button class="metric-btn" onclick="setPulseMetric('qty',event)">Units</button>
-      <button class="metric-btn" onclick="setPulseMetric('gmv',event)">GMV</button>
+  <!-- Movement Table — flat product list -->
+  <div class="section-hdr">Product Movement <span style="font-weight:400;font-size:9px;color:#6e7681">click column headers to sort</span></div>
+  <div class="pulse-filters">
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span class="filter-label">Metric</span>
+      <div class="metric-sel" id="pulse-metric-sel" style="margin:0">
+        <button class="metric-btn active" onclick="setPulseMetric('net_rev',event)">Net Revenue</button>
+        <button class="metric-btn" onclick="setPulseMetric('qty',event)">Units</button>
+        <button class="metric-btn" onclick="setPulseMetric('gmv',event)">GMV</button>
+      </div>
+      <span class="filter-label" style="margin-left:8px">Brand</span>
+      <div id="pulse-brand-filters" style="display:inline-flex;gap:4px;flex-wrap:wrap"></div>
+      <span class="filter-label" style="margin-left:8px">Category</span>
+      <div id="pulse-cat-filters" style="display:inline-flex;gap:4px;flex-wrap:wrap"></div>
     </div>
-    <div class="legend">Yesterday single-day actual · Target = DRR benchmark</div>
+    <div style="margin-top:6px;font-size:10px;color:#6e7681">
+      <span style="color:#3fb950">Yesterday = single-day actual</span> · Target = DRR benchmark · <span id="pulse-row-count"></span>
+    </div>
   </div>
   <div class="tbl-wrap">
-    <table><thead><tr>
-      <th>Brand / Category / SubCat / Product</th>
-      <th>Yesterday</th>
-      <th>DoD %</th>
-      <th>WoW %</th>
-      <th>4W Avg %</th>
-      <th>vs Target DRR</th>
+    <table style="min-width:860px"><thead><tr>
+      <th style="text-align:left;padding-left:14px;cursor:pointer;min-width:200px" onclick="sortPulse('name')">Product <span class="sort-icon" id="ps-name"></span></th>
+      <th style="text-align:left;cursor:pointer" onclick="sortPulse('brand')">Brand <span class="sort-icon" id="ps-brand"></span></th>
+      <th style="text-align:left;cursor:pointer" onclick="sortPulse('cat')">Category <span class="sort-icon" id="ps-cat"></span></th>
+      <th style="cursor:pointer" onclick="sortPulse('yd')">Yesterday <span class="sort-icon" id="ps-yd">▼</span></th>
+      <th style="cursor:pointer" onclick="sortPulse('dod')">DoD % <span class="sort-icon" id="ps-dod"></span></th>
+      <th style="cursor:pointer" onclick="sortPulse('wow')">WoW % <span class="sort-icon" id="ps-wow"></span></th>
+      <th style="cursor:pointer" onclick="sortPulse('avg4')">4W Avg % <span class="sort-icon" id="ps-avg4"></span></th>
+      <th style="cursor:pointer" onclick="sortPulse('tgt')">vs Target <span class="sort-icon" id="ps-tgt"></span></th>
     </tr></thead>
     <tbody id="pulse-body"></tbody></table>
   </div>
@@ -901,7 +917,11 @@ function createEmailDraft() {
 }
 
 // ── DAILY PULSE RENDERING ──────────────────────────────────────────
-let PULSE_METRIC = 'net_rev';
+let PULSE_METRIC   = 'net_rev';
+let PULSE_F_BRANDS = new Set();   // empty = show all
+let PULSE_F_CATS   = new Set();   // empty = show all
+let PULSE_SORT_COL = 'yd';
+let PULSE_SORT_DIR = -1;          // -1 = desc, 1 = asc
 
 // Format a single-day absolute value
 function fDP(v, metric) {
@@ -944,13 +964,13 @@ function renderDailyPulse() {
   if (!dp || !h) return;
 
   // Date context bar
-  const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v||'—'; };
-  set('pd-yday',  dp.ydLabel);
-  set('pd-dbyd',  dp.dbLabel);
-  set('pd-lw',    dp.lwLabel);
-  set('pd-lw4',   dp.lw4Labels);
+  const setEl = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v||'—'; };
+  setEl('pd-yday', dp.ydLabel);
+  setEl('pd-dbyd', dp.dbLabel);
+  setEl('pd-lw',   dp.lwLabel);
+  setEl('pd-lw4',  dp.lw4Labels);
 
-  // Brand cards — always show NR
+  // Brand cards (always NR)
   const bcEl = document.getElementById('pulse-brand-cards');
   if (bcEl) {
     bcEl.innerHTML = '';
@@ -958,12 +978,12 @@ function renderDailyPulse() {
       const d = h[brand]; if (!d || !d.dp) return;
       const v = dpGet(d.dp, 'net_rev');
       const tNR = d.tgt?.net_rev || 0;
-      const dod = v.db  > 0 ? ((v.yd-v.db)/v.db*100)   : null;
-      const wow = v.lw  > 0 ? ((v.yd-v.lw)/v.lw*100)   : null;
-      const avg = v.lw4 > 0 ? ((v.yd-v.lw4)/v.lw4*100) : null;
-      const tgt = tNR   > 0 ? ((v.yd-tNR)/tNR*100)     : null;
+      const dod = v.db  > 0 ? (v.yd-v.db)/v.db*100   : null;
+      const wow = v.lw  > 0 ? (v.yd-v.lw)/v.lw*100   : null;
+      const avg = v.lw4 > 0 ? (v.yd-v.lw4)/v.lw4*100 : null;
+      const tgt = tNR   > 0 ? (v.yd-tNR)/tNR*100     : null;
       const nrL = v.yd > 0 ? (v.yd/1e5).toFixed(2) : '0';
-      const fmt = n => n!==null ? `<span class="${n>=0?'pos':'neg'}">${n>=0?'↑':'↓'} ${Math.abs(n).toFixed(1)}%</span>` : '<span style="color:#6e7681">–</span>';
+      const fmt  = n => n!==null ? `<span class="${n>=0?'pos':'neg'}">${n>=0?'↑':'↓'} ${Math.abs(n).toFixed(1)}%</span>` : '<span style="color:#6e7681">–</span>';
       const fmtT = n => n!==null ? `<span style="color:${n>=0?'#3fb950':n>=-10?'#d29922':'#f85149'};font-weight:700">${n>=0?'↑':'↓'} ${Math.abs(n).toFixed(1)}%</span>` : '<span style="color:#6e7681">–</span>';
       bcEl.innerHTML += `
       <div class="card ${BSTYLE[brand]}">
@@ -979,26 +999,38 @@ function renderDailyPulse() {
     });
   }
 
-  // Callouts — top 3 spikes / drops by WoW NR %
+  // ── Callouts — Impact Score = |WoW%| × √(lw_NR) ─────────────────
+  // This weights % change by the square root of the comparison base,
+  // so tiny products with huge % swings don't dominate the list.
   const gEl = document.getElementById('pulse-gainers');
   const dEl = document.getElementById('pulse-droppers');
   if (gEl && dp.products) {
     const eligible = dp.products
       .filter(p => p.yd?.net_rev > 0 && p.lw?.net_rev > 0)
-      .map(p => ({...p, _wow: (p.yd.net_rev - p.lw.net_rev) / p.lw.net_rev * 100}));
-    const gainers  = [...eligible].sort((a,b)=>b._wow-a._wow).slice(0,3);
-    const droppers = [...eligible].sort((a,b)=>a._wow-b._wow).slice(0,3);
+      .map(p => {
+        const wow    = (p.yd.net_rev - p.lw.net_rev) / p.lw.net_rev * 100;
+        const impact = Math.abs(wow) * Math.sqrt(p.lw.net_rev);  // impact score
+        const delta  = p.yd.net_rev - p.lw.net_rev;              // absolute ₹ swing
+        return {...p, _wow: wow, _impact: impact, _delta: delta};
+      });
+    const gainers  = eligible.filter(p => p._wow > 0).sort((a,b) => b._impact - a._impact).slice(0,3);
+    const droppers = eligible.filter(p => p._wow < 0).sort((a,b) => b._impact - a._impact).slice(0,3);
+
     const mkItem = (p, up) => {
-      const color = up ? '#3fb950' : '#f85149';
-      const nrL = (p.yd.net_rev/1e5).toFixed(2);
+      const color  = up ? '#3fb950' : '#f85149';
+      const ydL    = (p.yd.net_rev/1e5).toFixed(2);
+      const deltaL = Math.abs(p._delta) >= 100000
+        ? (up?'+':'−') + '₹' + (Math.abs(p._delta)/1e5).toFixed(1) + 'L'
+        : (up?'+':'−') + '₹' + (Math.abs(p._delta)/1000).toFixed(0) + 'K';
       return `<div class="callout-item ${up?'callout-item-gain':'callout-item-drop'}">
         <div style="flex:1;min-width:0">
           <div class="ci-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name||p.iid}</div>
           <div class="ci-brand">${p.brand} · ${p.cat}</div>
+          <div class="ci-nr" style="margin-top:3px;color:${color};font-weight:700">${deltaL} vs last week</div>
         </div>
-        <div style="text-align:right;padding-left:10px">
+        <div style="text-align:right;padding-left:10px;flex-shrink:0">
           <div class="ci-pct" style="color:${color}">${p._wow>=0?'↑':'↓'} ${Math.abs(p._wow).toFixed(1)}%</div>
-          <div class="ci-nr">₹${nrL}L yday</div>
+          <div class="ci-nr">yday ₹${ydL}L</div>
         </div>
       </div>`;
     };
@@ -1006,86 +1038,110 @@ function renderDailyPulse() {
     dEl.innerHTML = droppers.length ? droppers.map(p=>mkItem(p,false)).join('') : '<div style="color:#6e7681;font-size:11px;padding:8px">No data</div>';
   }
 
-  // Movement table
+  // Render filter pills + flat table
+  renderPulseFilters();
   buildPulseRows(PULSE_METRIC);
 }
 
+// ── Filter pills ────────────────────────────────────────────────────
+function renderPulseFilters() {
+  const dp = DATA.daily_pulse;
+  if (!dp || !dp.products) return;
+  const brands = [...new Set(dp.products.map(p=>p.brand).filter(Boolean))].sort();
+  const cats   = [...new Set(dp.products.map(p=>p.cat).filter(Boolean))].sort();
+  const mkPill = (val, activeSet, fn) =>
+    `<button class="filter-pill ${activeSet.size===0||activeSet.has(val)?'fp-active':''}" onclick="${fn}(this,'${val.replace(/'/g,"\\'")}')">${val}</button>`;
+  const bEl = document.getElementById('pulse-brand-filters');
+  const cEl = document.getElementById('pulse-cat-filters');
+  if (bEl) bEl.innerHTML = brands.map(b=>mkPill(b,PULSE_F_BRANDS,'pFBrand')).join('');
+  if (cEl) cEl.innerHTML = cats.map(c=>mkPill(c,PULSE_F_CATS,'pFCat')).join('');
+}
+function pFBrand(btn, val) {
+  // Toggle: add/remove from filter set. Empty set = show all.
+  if (PULSE_F_BRANDS.has(val)) PULSE_F_BRANDS.delete(val);
+  else PULSE_F_BRANDS.add(val);
+  PULSE_F_CATS.clear();  // reset cat filter when brand changes
+  renderPulseFilters(); buildPulseRows(PULSE_METRIC);
+}
+function pFCat(btn, val) {
+  if (PULSE_F_CATS.has(val)) PULSE_F_CATS.delete(val);
+  else PULSE_F_CATS.add(val);
+  renderPulseFilters(); buildPulseRows(PULSE_METRIC);
+}
+
+// ── Flat product table ──────────────────────────────────────────────
 function buildPulseRows(metric) {
-  const h = DATA.hierarchy;
+  const dp = DATA.daily_pulse;
   const tbody = document.getElementById('pulse-body');
-  if (!tbody || !h) return;
-  tbody.innerHTML = '';
-  const brands = ['Be Bodywise','Little Joys','Man Matters'];
+  if (!tbody || !dp || !dp.products) return;
 
-  brands.forEach(brand => {
-    const d = h[brand]; if (!d || !d.dp) return;
-    const bid = brand.replace(/\s/g,'_');
-    const bv  = dpGet(d.dp, metric);
-    const bTgt = d.tgt?.[metric] || 0;
-    tbody.innerHTML += `<tr class="row-brand" onclick="togglePulseBrand('${bid}',this)">
-      <td><span class="exp-icon">▸</span>${brand}</td>
-      <td>${fDP(bv.yd,metric)}</td>
-      <td>${fDPPct(bv.yd,bv.db)}</td><td>${fDPPct(bv.yd,bv.lw)}</td><td>${fDPPct(bv.yd,bv.lw4)}</td>
-      <td>${fDPTgt(bv.yd,bTgt)}</td>
-    </tr>`;
-
-    Object.entries(d.categories||{})
-      .sort(([,a],[,b])=>(b.dp?.yd?.[metric]||0)-(a.dp?.yd?.[metric]||0))
-      .forEach(([cat,cData]) => {
-        if (!cData.dp) return;
-        const cid = bid+'_'+cat.replace(/[\s/]/g,'_');
-        const cv  = dpGet(cData.dp, metric);
-        const cTgt = cData.tgt?.[metric] || 0;
-        tbody.innerHTML += `<tr class="row-cat sub-row pulse-brand-${bid}" onclick="togglePulseCat('${cid}',this)">
-          <td><span class="exp-icon">▸</span>${cat}</td>
-          <td>${fDP(cv.yd,metric)}</td>
-          <td>${fDPPct(cv.yd,cv.db)}</td><td>${fDPPct(cv.yd,cv.lw)}</td><td>${fDPPct(cv.yd,cv.lw4)}</td>
-          <td>${fDPTgt(cv.yd,cTgt)}</td>
-        </tr>`;
-
-        Object.entries(cData.subcats||{})
-          .sort(([,a],[,b])=>(b.dp?.yd?.[metric]||0)-(a.dp?.yd?.[metric]||0))
-          .forEach(([sub,sData]) => {
-            if (!sData.dp) return;
-            const sid = cid+'_'+sub.replace(/[\s/]/g,'_');
-            const sv  = dpGet(sData.dp, metric);
-            const sTgt = sData.tgt?.[metric] || 0;
-            tbody.innerHTML += `<tr class="row-sub sub-row pulse-cat-${cid}" onclick="togglePulseSub('${sid}',this)">
-              <td><span class="exp-icon">▸</span>${sub}</td>
-              <td>${fDP(sv.yd,metric)}</td>
-              <td>${fDPPct(sv.yd,sv.db)}</td><td>${fDPPct(sv.yd,sv.lw)}</td><td>${fDPPct(sv.yd,sv.lw4)}</td>
-              <td>${fDPTgt(sv.yd,sTgt)}</td>
-            </tr>`;
-
-            (sData.products||[]).slice()
-              .sort((a,b)=>(b.dp?.yd?.[metric]||0)-(a.dp?.yd?.[metric]||0))
-              .forEach(prod => {
-                if (!prod.dp) return;
-                const pv  = dpGet(prod.dp, metric);
-                const pTgt = metric==='net_rev' ? (prod.tgt?.net_rev||0) : (prod.tgt?.[metric]||0);
-                tbody.innerHTML += `<tr class="row-prod prod-row pulse-sub-${sid}">
-                  <td style="padding-left:58px;font-style:italic;color:#8b949e">${prod.name||prod.item_id}</td>
-                  <td>${fDP(pv.yd,metric)}</td>
-                  <td>${fDPPct(pv.yd,pv.db)}</td><td>${fDPPct(pv.yd,pv.lw)}</td><td>${fDPPct(pv.yd,pv.lw4)}</td>
-                  <td>${fDPTgt(pv.yd,pTgt)}</td>
-                </tr>`;
-              });
-          });
-      });
+  // Apply filters
+  let rows = dp.products.filter(p => {
+    if (PULSE_F_BRANDS.size > 0 && !PULSE_F_BRANDS.has(p.brand)) return false;
+    if (PULSE_F_CATS.size   > 0 && !PULSE_F_CATS.has(p.cat))     return false;
+    return true;
   });
 
-  // Grand total
-  const tYD   = brands.reduce((s,b)=>s+(h[b]?.dp?.yd?.[metric]   ||0),0);
-  const tDB   = brands.reduce((s,b)=>s+(h[b]?.dp?.db?.[metric]   ||0),0);
-  const tLW   = brands.reduce((s,b)=>s+(h[b]?.dp?.lw?.[metric]   ||0),0);
-  const tLW4s = brands.reduce((s,b)=>s+(h[b]?.dp?.lw4s?.[metric] ||0),0);
-  const tTgt  = brands.reduce((s,b)=>s+(h[b]?.tgt?.[metric]      ||0),0);
-  tbody.innerHTML += `<tr class="row-grand">
-    <td>GRAND TOTAL</td>
-    <td>${fDP(tYD,metric)}</td>
-    <td>${fDPPct(tYD,tDB)}</td><td>${fDPPct(tYD,tLW)}</td><td>${fDPPct(tYD,tLW4s/4)}</td>
-    <td>${fDPTgt(tYD,tTgt)}</td>
-  </tr>`;
+  // Compute values
+  rows = rows.map(p => {
+    const yd  = p.yd?.[metric]   || 0;
+    const db  = p.db?.[metric]   || 0;
+    const lw  = p.lw?.[metric]   || 0;
+    const lw4 = p.lw4s?.[metric] ? p.lw4s[metric]/4 : 0;
+    const tgt = metric==='net_rev' ? (p.tgt?.nr||0) : (p.tgt?.[metric]||0);
+    return {...p,
+      _yd: yd, _db: db, _lw: lw, _lw4: lw4, _tgt: tgt,
+      _dod: db  > 0 ? (yd-db)/db*100   : null,
+      _wow: lw  > 0 ? (yd-lw)/lw*100   : null,
+      _avg: lw4 > 0 ? (yd-lw4)/lw4*100 : null,
+      _vs:  tgt > 0 ? (yd-tgt)/tgt*100 : null
+    };
+  });
+
+  // Sort
+  const dir = PULSE_SORT_DIR;
+  rows.sort((a,b) => {
+    if (PULSE_SORT_COL === 'name')  return dir * (a.name||'').localeCompare(b.name||'');
+    if (PULSE_SORT_COL === 'brand') return dir * (a.brand||'').localeCompare(b.brand||'');
+    if (PULSE_SORT_COL === 'cat')   return dir * (a.cat||'').localeCompare(b.cat||'');
+    const map = {yd:'_yd',dod:'_dod',wow:'_wow',avg4:'_avg',tgt:'_vs'};
+    const key = map[PULSE_SORT_COL] || '_yd';
+    const av = a[key] ?? -Infinity, bv = b[key] ?? -Infinity;
+    return dir * (bv - av);
+  });
+
+  // Update sort icons
+  ['name','brand','cat','yd','dod','wow','avg4','tgt'].forEach(col => {
+    const el = document.getElementById('ps-'+col);
+    if (el) el.textContent = col===PULSE_SORT_COL ? (PULSE_SORT_DIR===-1?'▼':'▲') : '';
+  });
+
+  // Row count
+  const rcEl = document.getElementById('pulse-row-count');
+  if (rcEl) rcEl.textContent = `${rows.length} products`;
+
+  // Brand colours
+  const BC = {'Be Bodywise':'#58a6ff','Little Joys':'#3fb950','Man Matters':'#d29922'};
+
+  const pctCell = (n, tgtMode=false) => {
+    if (n===null) return '<td style="color:#6e7681">–</td>';
+    if (tgtMode) {
+      const c = n>=0?'#3fb950':n>=-10?'#d29922':'#f85149';
+      return `<td><span style="color:${c};font-weight:700">${n>=0?'↑':'↓'} ${Math.abs(n).toFixed(1)}%</span></td>`;
+    }
+    return `<td><span class="${n>=0?'pos':'neg'}">${n>=0?'↑':'↓'} ${Math.abs(n).toFixed(1)}%</span></td>`;
+  };
+
+  tbody.innerHTML = rows.map(p => `
+    <tr style="border-bottom:1px solid #0d1117" onmouseover="this.style.background='#1c2128'" onmouseout="this.style.background=''">
+      <td style="padding-left:14px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name||p.iid}</td>
+      <td style="color:${BC[p.brand]||'#8b949e'};font-weight:700;font-size:10px;white-space:nowrap">${p.brand}</td>
+      <td style="font-size:10px;color:#8b949e;white-space:nowrap">${p.cat||'–'}</td>
+      <td>${fDP(p._yd,metric)}</td>
+      ${pctCell(p._dod)}${pctCell(p._wow)}${pctCell(p._avg)}${pctCell(p._vs,true)}
+    </tr>`).join('');
+
+  if (!rows.length) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#6e7681;padding:20px">No products match current filters</td></tr>';
 }
 
 function setPulseMetric(m,evt) {
@@ -1094,29 +1150,10 @@ function setPulseMetric(m,evt) {
   evt.target.classList.add('active');
   buildPulseRows(m);
 }
-function togglePulseBrand(id,row) {
-  row.classList.toggle('expanded');
-  document.querySelectorAll('.pulse-brand-'+id).forEach(r=>{
-    r.style.display=r.style.display==='table-row'?'none':'table-row';
-    if(r.style.display==='none'){r.classList.remove('expanded');
-      const cid=r.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
-      if(cid) document.querySelectorAll('.pulse-cat-'+cid+',.pulse-sub-'+cid).forEach(x=>{x.style.display='none';x.classList.remove('expanded');});
-    }
-  });
-}
-function togglePulseCat(id,row) {
-  row.classList.toggle('expanded');
-  document.querySelectorAll('.pulse-cat-'+id).forEach(r=>{
-    r.style.display=r.style.display==='table-row'?'none':'table-row';
-    if(r.style.display==='none'){r.classList.remove('expanded');
-      const sid=r.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
-      if(sid) document.querySelectorAll('.pulse-sub-'+sid).forEach(x=>{x.style.display='none';});
-    }
-  });
-}
-function togglePulseSub(id,row) {
-  row.classList.toggle('expanded');
-  document.querySelectorAll('.pulse-sub-'+id).forEach(r=>{r.style.display=r.style.display==='table-row'?'none':'table-row';});
+function sortPulse(col) {
+  PULSE_SORT_DIR = PULSE_SORT_COL===col ? PULSE_SORT_DIR*-1 : (['name','brand','cat'].includes(col) ? 1 : -1);
+  PULSE_SORT_COL = col;
+  buildPulseRows(PULSE_METRIC);
 }
 
 // ── TAB SWITCH ─────────────────────────────────────────────────────

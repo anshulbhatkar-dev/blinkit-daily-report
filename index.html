@@ -332,14 +332,16 @@ function renderCards() {
 function buildRows(metric, tbodyId) {
   const h = DATA.hierarchy, tbody = document.getElementById(tbodyId);
   tbody.innerHTML = '';
-  let gApr=0, gMar=0, totLmtd=0, gTgt=0, totProj=0;
+  let gApr=0, gMar=0, totLmtd=0, gTgt=0, totProj=0, grandAchNum=0;
 
   ['Be Bodywise','Little Joys','Man Matters'].forEach(brand => {
     const d = h[brand]; if (!d) return;
     const bApr=gV(d.apr,metric), bMar=gV(d.mar,metric), bLmtd=gLmtd(d,metric);
     const bTgt=gV(d.tgt,metric), bProj=gProj(d,metric);
     const bAch = bProj || bApr;   // proj if exists, else actual DRR
-    gApr+=bApr; gMar+=bMar; totLmtd+=bLmtd; gTgt+=bTgt; if(bProj) totProj+=bProj;
+    gApr+=bApr; gMar+=bMar; totLmtd+=bLmtd; gTgt+=bTgt;
+    if(bProj) totProj+=bProj;
+    grandAchNum += bAch;           // per-brand (proj or actual) — correct blended grand total
     const bid = brand.replace(/\s/g,'_');
 
     tbody.innerHTML += `<tr class="row-brand" onclick="toggleBrand('${bid}',this)">
@@ -397,13 +399,11 @@ function buildRows(metric, tbodyId) {
     });
   });
 
-  // Grand total: use sum of proj where available + actual for brands with no proj
-  const grandAch = totProj > 0 ? totProj : gApr;
   tbody.innerHTML += `<tr class="row-grand">
     <td>GRAND TOTAL</td>
     <td>${fL(gMar,metric)}</td><td>${fL(totLmtd,metric)}</td><td>${fL(gApr,metric)}</td>
     <td class="proj-val">${fL(totProj||null,metric)}</td><td class="tgt-val">${fL(gTgt,metric)}</td>
-    <td>${fAch(grandAch,gTgt)}</td><td>${fPct(gApr,totLmtd)}</td>
+    <td>${fAch(grandAchNum,gTgt)}</td><td>${fPct(gApr,totLmtd)}</td>
   </tr>`;
 }
 
@@ -895,37 +895,74 @@ function refreshData() {
   // select A,C,G,J,K,L where C='Blinkit' → idx 0–5
   const tgtTql  = encodeURIComponent(`select A,C,G,J,K,L where C='Blinkit'`);
 
-  // ── SKU Level (GID 1200688139, headers=6) ─────────────────────────
-  // select A,D,AH where A='Blinkit' → idx 0–2
-  const skuTql  = encodeURIComponent(`select A,D,AH where A='Blinkit'`);
+  // ── SKU Level — fetch as CSV to bypass active sheet filter ──────────
+  // GViz always respects the filter toolbar; /export?format=csv reads raw cells.
+  // Column positions (0-indexed): A=0 Platform, D=3 item_id, AH=33 Projected_DRR
+  // First 5 rows = notes/empty, row 6 = header → data starts at line index 6.
+  const skuCsvUrl = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=1200688139`;
 
-  // range= forces GViz to read raw cell data — bypasses any active sheet filter.
-  // Without range=, GViz respects the filter toolbar and silently drops hidden rows.
+  function parseSkuCsv(text) {
+    function splitCsvRow(row) {
+      const fields = []; let cur = '', inQ = false;
+      for (let i = 0; i < row.length; i++) {
+        const c = row[i];
+        if (c === '"') { if (inQ && row[i+1]==='"') { cur+='"'; i++; } else inQ=!inQ; }
+        else if (c === ',' && !inQ) { fields.push(cur.trim()); cur = ''; }
+        else cur += c;
+      }
+      fields.push(cur.trim());
+      return fields;
+    }
+    const lines = text.replace(/\r/g,'').split('\n');
+    const map = {};
+    // Row index 0–4 = header block (6 header rows → skip first 6 lines)
+    for (let i = 6; i < lines.length; i++) {
+      const f = splitCsvRow(lines[i]);
+      if (!f || f.length < 34) continue;
+      const platform = f[0].replace(/^"|"$/g,'');
+      if (platform !== 'Blinkit') continue;
+      const rawId  = f[3].replace(/^"|"$/g,'');
+      const rawPrj = f[33].replace(/^"|"$/g,'');
+      const numId  = Number(String(rawId).replace(/[^0-9.]/g,''));
+      const proj   = parseFloat(rawPrj) || 0;
+      if (numId && !isNaN(numId) && proj > 0)
+        map[String(Math.round(numId))] = proj;
+    }
+    console.log(`SKU CSV parsed: ${Object.keys(map).length} Blinkit projections (filter-bypassed)`);
+    return map;
+  }
+
   const BASE = `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json`;
-  const urls = [
-    `${BASE}&gid=1168753412&range=A:Z&tq=${nbTql}`,
-    `${BASE}&gid=629606959&range=A:L&headers=3&tq=${tgtTql}`,
-    `${BASE}&gid=1200688139&range=A:AH&headers=6&tq=${skuTql}`
-  ];
+  const nbUrl  = `${BASE}&gid=1168753412&range=A:Z&tq=${nbTql}`;
+  const tgtUrl = `${BASE}&gid=629606959&range=A:L&headers=3&tq=${tgtTql}`;
 
-  Promise.all(urls.map(gvizJsonp))
-    .then(([nbJson, tgtJson, skuJson]) => {
+  // Fetch New Base + AOP Target via JSONP; SKU Level via raw CSV export
+  Promise.all([
+    gvizJsonp(nbUrl),
+    gvizJsonp(tgtUrl),
+    fetch(skuCsvUrl).then(r => { if(!r.ok) throw new Error('CSV '+r.status); return r.text(); })
+                    .then(parseSkuCsv)
+                    .catch(err => {
+                      console.warn('SKU CSV fetch failed, falling back to GViz JSONP:', err.message);
+                      return gvizJsonp(`${BASE}&gid=1200688139&range=A:AH&headers=6&tq=${encodeURIComponent("select A,D,AH where A='Blinkit'")}`).then(j => {
+                        const map = {};
+                        j.table?.rows?.forEach(r => {
+                          const raw = r.c?.[1]?.v; const proj = Number(r.c?.[2]?.v||0);
+                          if (raw && proj>0) { const id=String(Math.round(Number(String(raw).replace(/[^0-9.]/g,'')))); if(id&&id!=='0') map[id]=proj; }
+                        });
+                        return map;
+                      });
+                    })
+  ]).then(([nbJson, tgtJson, projByIdMap]) => {
       const nbRows  = nbJson.table?.rows?.length  || 0;
       const tgtRows = tgtJson.table?.rows?.length || 0;
-      const skuRows = skuJson.table?.rows?.length || 0;
-      console.log('GViz rows — newBase:', nbRows, '| aopTarget:', tgtRows, '| skuLevel:', skuRows);
+      console.log('GViz rows — newBase:', nbRows, '| aopTarget:', tgtRows, '| skuProjections:', Object.keys(projByIdMap).length);
       if (nbRows > 0) {
         const r0 = nbJson.table.rows[0];
         console.log('newBase row[0]:', JSON.stringify(r0));
-        console.log('  date:', r0.c?.[0]?.v, ' brand:', r0.c?.[4]?.v, ' qty:', r0.c?.[3]?.v, ' nr:', r0.c?.[9]?.v);
-      } else {
-        console.warn('newBase: 0 rows — check WHERE clause or GID');
-      }
-      if (tgtRows > 0) console.log('aopTarget row[0]:', JSON.stringify(tgtJson.table.rows[0]));
-      else console.warn('aopTarget: 0 rows — check headers=3 or column refs');
-      if (skuRows > 0) console.log('skuLevel row[0]:', JSON.stringify(skuJson.table.rows[0]));
-      else console.warn('skuLevel: 0 rows — check headers=6 or column refs');
-      processAllData(nbJson, tgtJson, skuJson);
+      } else console.warn('newBase: 0 rows — check WHERE clause or GID');
+      if (tgtRows === 0) console.warn('aopTarget: 0 rows — check headers=3 or column refs');
+      processAllData(nbJson, tgtJson, projByIdMap);
       btn.textContent = '⟳ Refresh from GSheet'; btn.style.opacity='1';
     })
     .catch(err => {
@@ -955,7 +992,8 @@ function refreshData() {
 //   mtdDays = day-of-month of latestDate   (Apr 12 → mtdDays=12)
 //   LMTD = prev month days 1..mtdDays  (May 18 → LMTD = Apr 1–18)
 //   7-day: L7D = latestDate-6 … latestDate; P7D = latestDate-13 … latestDate-7
-function processAllData(nbJson, tgtJson, skuJson) {
+// projByIdMap: pre-built {item_id → projected_DRR} from CSV export (filter-bypassed)
+function processAllData(nbJson, tgtJson, projByIdMap) {
   const v  = (r,i) => { const c=r.c?.[i]; return (c&&c.v!=null)?c.v:null; };
   const vn = (r,i) => { const x=v(r,i); return (x!=null && !isNaN(x)) ? Number(x) : 0; };
   const vs = (r,i) => { const x=v(r,i); return x!=null?String(x).trim():''; };
@@ -1032,19 +1070,8 @@ function processAllData(nbJson, tgtJson, skuJson) {
   });
   console.log(`  Targets loaded: ${Object.keys(tgtById).length} by item_id, ${Object.keys(tgtBySku).length} by SKU`);
 
-  // ── 3. Build projection map from SKU Level ───────────────────────
-  // select A,D,AH (headers=6) → 0=Platform 1=item_id 2=Projected_DRR
-  const projById = {};
-  skuJson.table.rows.forEach(r => {
-    if (vs(r,0) !== 'Blinkit') return;
-    const raw = v(r,1);   // Platform SKU = item_id
-    if (!raw) return;
-    const rawNum = Number(String(raw).replace(/[^0-9.]/g,''));
-    if (!rawNum || isNaN(rawNum)) return;
-    const iid = String(Math.round(rawNum));
-    const proj = vn(r,2);
-    if (iid && iid !== '0' && proj > 0) projById[iid] = proj;
-  });
+  // ── 3. Projection map — already built from CSV export (filter-bypassed) ────
+  const projById = projByIdMap || {};
   console.log(`  Projections loaded: ${Object.keys(projById).length} SKUs`);
 
   // ── 4. Process New Base rows ─────────────────────────────────────

@@ -293,15 +293,17 @@ function renderCards() {
   el.innerHTML = '';
   ['Be Bodywise','Little Joys','Man Matters'].forEach(brand => {
     const d = h[brand]; if (!d) return;
-    const achPct = d.tgt.qty > 0 ? Math.min(d.apr.qty/d.tgt.qty*100, 100) : 0;
-    const achColor = achPct>=100?'#3fb950':achPct>=90?'#d29922':'#f85149';
-    const revL = (d.apr.net_rev/1e5).toFixed(1);
-    const projL = d.proj ? (d.proj.proj_nr/1e5).toFixed(1) : null;
+    // TGT ACH: use proj if available, else fall back to actual MTD DRR
+    const projUnits = d.proj?.proj_units || 0;
+    const achUnits  = projUnits > 0 ? projUnits : d.apr.qty;   // proj or actual
+    const achPct    = d.tgt.qty > 0 ? Math.min(achUnits/d.tgt.qty*100, 150) : 0;
+    const achColor  = achPct>=100?'#3fb950':achPct>=90?'#d29922':'#f85149';
+    const revL  = (d.apr.net_rev/1e5).toFixed(1);
+    const projL = projUnits > 0 ? (d.proj.proj_nr/1e5).toFixed(1) : null;
     const marL  = (d.mar.net_rev/1e5).toFixed(1);
-    const rg = d.mar.net_rev > 0 ? ((d.apr.net_rev-d.mar.net_rev)/d.mar.net_rev*100).toFixed(1) : 0;
-    const lmtdL = d.mar_lmtd ? (d.mar_lmtd.net_rev/1e5).toFixed(1) : '–';
+    const rg    = d.mar.net_rev > 0 ? ((d.apr.net_rev-d.mar.net_rev)/d.mar.net_rev*100).toFixed(1) : 0;
     const lmtdG = d.mar_lmtd && d.mar_lmtd.net_rev > 0 ? ((d.apr.net_rev-d.mar_lmtd.net_rev)/d.mar_lmtd.net_rev*100).toFixed(1) : null;
-    const achU = d.tgt.qty > 0 && d.proj ? (d.proj.proj_units/d.tgt.qty*100).toFixed(1) : '–';
+    const achU  = d.tgt.qty > 0 ? (achUnits/d.tgt.qty*100).toFixed(1) : '–';
     const achCls = parseFloat(achU)>=100?'ach-g':parseFloat(achU)>=90?'ach-a':'ach-r';
     const qg = d.mar_lmtd && d.mar_lmtd.qty > 0 ? ((d.apr.qty-d.mar_lmtd.qty)/d.mar_lmtd.qty*100).toFixed(1) : (d.mar.qty > 0 ? ((d.apr.qty-d.mar.qty)/d.mar.qty*100).toFixed(1) : 0);
     el.innerHTML += `
@@ -325,6 +327,8 @@ function renderCards() {
 }
 
 // ── DRILLDOWN TABLE ────────────────────────────────────────────────
+// TGT ACH logic: use Proj DRR if available, else fall back to Actual MTD DRR.
+// This ensures brands without SKU-level projections still show meaningful achievement %.
 function buildRows(metric, tbodyId) {
   const h = DATA.hierarchy, tbody = document.getElementById(tbodyId);
   tbody.innerHTML = '';
@@ -334,6 +338,7 @@ function buildRows(metric, tbodyId) {
     const d = h[brand]; if (!d) return;
     const bApr=gV(d.apr,metric), bMar=gV(d.mar,metric), bLmtd=gLmtd(d,metric);
     const bTgt=gV(d.tgt,metric), bProj=gProj(d,metric);
+    const bAch = bProj || bApr;   // proj if exists, else actual DRR
     gApr+=bApr; gMar+=bMar; totLmtd+=bLmtd; gTgt+=bTgt; if(bProj) totProj+=bProj;
     const bid = brand.replace(/\s/g,'_');
 
@@ -341,7 +346,7 @@ function buildRows(metric, tbodyId) {
       <td><span class="exp-icon">▸</span>${brand}</td>
       <td>${fL(bMar,metric)}</td><td>${fL(bLmtd,metric)}</td><td>${fL(bApr,metric)}</td>
       <td class="proj-val">${fL(bProj,metric)}</td><td class="tgt-val">${fL(bTgt,metric)}</td>
-      <td>${fAch(bProj,bTgt)}</td><td>${fPct(bApr,bLmtd)}</td>
+      <td>${fAch(bAch,bTgt)}</td><td>${fPct(bApr,bLmtd)}</td>
     </tr>`;
 
     Object.entries(d.categories||{})
@@ -349,12 +354,13 @@ function buildRows(metric, tbodyId) {
       .forEach(([cat,cData]) => {
       const cApr=gV(cData.apr,metric), cMar=gV(cData.mar,metric), cLmtd=gLmtd(cData,metric);
       const cTgt=gV(cData.tgt,metric), cProj=gProj(cData,metric);
+      const cAch = cProj || cApr;
       const cid = bid+'_'+cat.replace(/[\s/]/g,'_');
       tbody.innerHTML += `<tr class="row-cat sub-row brand-${bid}" onclick="toggleCat('${cid}',this)">
         <td><span class="exp-icon">▸</span>${cat}</td>
         <td>${fL(cMar,metric)}</td><td>${fL(cLmtd,metric)}</td><td>${fL(cApr,metric)}</td>
         <td class="proj-val">${fL(cProj,metric)}</td><td class="tgt-val">${fL(cTgt,metric)}</td>
-        <td>${fAch(cProj,cTgt)}</td><td>${fPct(cApr,cLmtd)}</td>
+        <td>${fAch(cAch,cTgt)}</td><td>${fPct(cApr,cLmtd)}</td>
       </tr>`;
 
       Object.entries(cData.subcats||{})
@@ -362,12 +368,13 @@ function buildRows(metric, tbodyId) {
         .forEach(([sub,sData]) => {
         const sApr=gV(sData.apr,metric), sMar=gV(sData.mar,metric), sLmtd=gLmtd(sData,metric);
         const sTgt=gV(sData.tgt,metric), sProj=gProj(sData,metric);
+        const sAch = sProj || sApr;
         const sid = cid+'_'+sub.replace(/[\s/]/g,'_');
         tbody.innerHTML += `<tr class="row-sub sub-row cat-${cid}" onclick="toggleSub('${sid}',this)">
           <td><span class="exp-icon">▸</span>${sub}</td>
           <td>${fL(sMar,metric)}</td><td>${fL(sLmtd,metric)}</td><td>${fL(sApr,metric)}</td>
           <td class="proj-val">${fL(sProj,metric)}</td><td class="tgt-val">${fL(sTgt,metric)}</td>
-          <td>${fAch(sProj,sTgt)}</td><td>${fPct(sApr,sLmtd)}</td>
+          <td>${fAch(sAch,sTgt)}</td><td>${fPct(sApr,sLmtd)}</td>
         </tr>`;
 
         (sData.products||[])
@@ -376,12 +383,13 @@ function buildRows(metric, tbodyId) {
           const pApr=gV(prod.apr,metric), pMar=gV(prod.mar,metric), pLmtd=gLmtd(prod,metric);
           const pProj=gProj(prod,metric);
           const pTgt = prod.tgt ? gV(prod.tgt, metric) : 0;
+          const pAch = pProj || pApr;
           tbody.innerHTML += `<tr class="row-prod prod-row sub-${sid}">
             <td>${prod.name}</td>
             <td>${fL(pMar,metric)}</td><td>${fL(pLmtd,metric)}</td><td>${fL(pApr,metric)}</td>
             <td class="proj-val">${fL(pProj,metric)}</td>
             <td class="tgt-val">${pTgt>0?fL(pTgt,metric):'–'}</td>
-            <td>${pTgt>0?fAch(pProj,pTgt):'–'}</td>
+            <td>${pTgt>0?fAch(pAch,pTgt):'–'}</td>
             <td>${fPct(pApr,pLmtd)}</td>
           </tr>`;
         });
@@ -389,11 +397,13 @@ function buildRows(metric, tbodyId) {
     });
   });
 
+  // Grand total: use sum of proj where available + actual for brands with no proj
+  const grandAch = totProj > 0 ? totProj : gApr;
   tbody.innerHTML += `<tr class="row-grand">
     <td>GRAND TOTAL</td>
     <td>${fL(gMar,metric)}</td><td>${fL(totLmtd,metric)}</td><td>${fL(gApr,metric)}</td>
     <td class="proj-val">${fL(totProj||null,metric)}</td><td class="tgt-val">${fL(gTgt,metric)}</td>
-    <td>${fAch(gApr,gTgt)}</td><td>${fPct(gApr,totLmtd)}</td>
+    <td>${fAch(grandAch,gTgt)}</td><td>${fPct(gApr,totLmtd)}</td>
   </tr>`;
 }
 
@@ -637,7 +647,8 @@ function buildEmailHTML() {
       const d = h[brand]; if(!d) return;
       const bApr=gV(d.apr,metricKey), bMar=gV(d.mar,metricKey), bLmtd=gLmtd(d,metricKey);
       const bTgt=gV(d.tgt,metricKey), bProj=gProj(d,metricKey);
-      const achPct = bTgt>0&&bProj?(bProj/bTgt*100).toFixed(1):'–';
+      const bAch = bProj || bApr;   // proj if exists, else actual
+      const achPct = bTgt>0?(bAch/bTgt*100).toFixed(1):'–';
       const achColor = parseFloat(achPct)>=100?'#276749':parseFloat(achPct)>=90?'#975a16':'#c53030';
       const mtdG = bLmtd>0?((bApr-bLmtd)/bLmtd*100).toFixed(1):0;
       // Brand row
@@ -657,7 +668,8 @@ function buildEmailHTML() {
         .forEach(([cat,cData]) => {
         const cApr=gV(cData.apr,metricKey), cMar=gV(cData.mar,metricKey), cLmtd=gLmtd(cData,metricKey);
         const cTgt=gV(cData.tgt,metricKey), cProj=gProj(cData,metricKey);
-        const cAch = cTgt>0&&cProj?(cProj/cTgt*100).toFixed(1):'–';
+        const cAchV = cProj || cApr;
+        const cAch = cTgt>0?(cAchV/cTgt*100).toFixed(1):'–';
         const cAchCol = parseFloat(cAch)>=100?'#276749':parseFloat(cAch)>=90?'#975a16':'#c53030';
         const cG = cLmtd>0?((cApr-cLmtd)/cLmtd*100).toFixed(1):0;
         rows += `<tr style="background:#fff;border-bottom:1px solid #e2e8f0">
@@ -887,11 +899,13 @@ function refreshData() {
   // select A,D,AH where A='Blinkit' → idx 0–2
   const skuTql  = encodeURIComponent(`select A,D,AH where A='Blinkit'`);
 
+  // range= forces GViz to read raw cell data — bypasses any active sheet filter.
+  // Without range=, GViz respects the filter toolbar and silently drops hidden rows.
   const BASE = `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json`;
   const urls = [
-    `${BASE}&gid=1168753412&tq=${nbTql}`,
-    `${BASE}&gid=629606959&headers=3&tq=${tgtTql}`,
-    `${BASE}&gid=1200688139&headers=6&tq=${skuTql}`
+    `${BASE}&gid=1168753412&range=A:Z&tq=${nbTql}`,
+    `${BASE}&gid=629606959&range=A:L&headers=3&tq=${tgtTql}`,
+    `${BASE}&gid=1200688139&range=A:AH&headers=6&tq=${skuTql}`
   ];
 
   Promise.all(urls.map(gvizJsonp))

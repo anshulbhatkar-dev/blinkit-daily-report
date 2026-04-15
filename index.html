@@ -96,6 +96,18 @@ iframe#email-preview{width:100%;border:none;height:520px;display:block}
 .em-btn.active{background:#238636;color:#fff;border-color:#238636}
 .schedule-info{background:#0f1f0f;border:1px solid #2ea043;border-radius:8px;padding:12px 16px;font-size:11px;color:#7ee787;margin-top:14px}
 .schedule-info b{color:#3fb950}
+/* ── DAILY PULSE TAB ── */
+.pulse-date-bar{display:flex;gap:16px;background:#161b27;border:1px solid #21262d;border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:11px;flex-wrap:wrap;align-items:center}
+.pulse-date-bar span{color:#6e7681}.pulse-date-bar b{color:#e2e8f0}
+.callout-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.callout-box{background:#161b27;border:1px solid #21262d;border-radius:10px;padding:14px}
+.callout-item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:6px;margin-bottom:6px}
+.callout-item:last-child{margin-bottom:0}
+.callout-item-gain{background:#0f2a1a}.callout-item-drop{background:#2a0f0f}
+.ci-name{font-size:11px;color:#e2e8f0;font-weight:600}
+.ci-brand{font-size:9px;color:#6e7681;margin-top:2px}
+.ci-pct{font-size:14px;font-weight:800}
+.ci-nr{font-size:10px;color:#8b949e;margin-top:2px}
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -118,6 +130,7 @@ iframe#email-preview{width:100%;border:none;height:520px;display:block}
   <div class="tab" onclick="switchTab('gmv',event)">GMV DRR</div>
   <div class="tab" onclick="switchTab('revenue',event)">Net Revenue DRR</div>
   <div class="tab" onclick="switchTab('seven',event)">📈 Last 7 Days</div>
+  <div class="tab" onclick="switchTab('pulse',event)">📅 Daily Pulse</div>
   <div class="tab" onclick="switchTab('email',event)">📧 Email</div>
 </div>
 
@@ -204,6 +217,57 @@ iframe#email-preview{width:100%;border:none;height:520px;display:block}
   </div>
 </div>
 
+<!-- ══════════════ DAILY PULSE TAB ══════════════ -->
+<div id="tab-pulse" class="tab-content">
+  <!-- Date Context Bar -->
+  <div class="pulse-date-bar">
+    <span>📅 Yesterday: <b id="pd-yday">—</b></span>
+    <span>DoD vs: <b id="pd-dbyd">—</b></span>
+    <span>WoW vs: <b id="pd-lw">—</b></span>
+    <span>4W Avg of: <b id="pd-lw4">—</b></span>
+    <span style="margin-left:auto;font-size:10px;color:#3fb950">⚡ Target = DRR benchmark vs single-day actual</span>
+  </div>
+
+  <!-- Brand Summary Cards -->
+  <div class="section-hdr">Brand Performance — Yesterday NR</div>
+  <div class="cards" id="pulse-brand-cards"></div>
+
+  <!-- Spike / Drop Callouts -->
+  <div class="section-hdr">Movement Callouts — WoW % <span style="font-weight:400;font-size:9px;color:#6e7681">products with yesterday NR &gt; 0 · ranked by WoW%</span></div>
+  <div class="callout-grid">
+    <div class="callout-box">
+      <div style="font-size:10px;font-weight:700;color:#3fb950;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">🚀 Top 3 Spikes</div>
+      <div id="pulse-gainers"></div>
+    </div>
+    <div class="callout-box">
+      <div style="font-size:10px;font-weight:700;color:#f85149;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">📉 Top 3 Drops</div>
+      <div id="pulse-droppers"></div>
+    </div>
+  </div>
+
+  <!-- Movement Table -->
+  <div class="section-hdr">Movement Detail <span style="font-weight:400;font-size:9px;color:#6e7681">click to expand · Brand › Category › SubCat › Product</span></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <div class="metric-sel" id="pulse-metric-sel">
+      <button class="metric-btn active" onclick="setPulseMetric('net_rev',event)">Net Revenue</button>
+      <button class="metric-btn" onclick="setPulseMetric('qty',event)">Units</button>
+      <button class="metric-btn" onclick="setPulseMetric('gmv',event)">GMV</button>
+    </div>
+    <div class="legend">Yesterday single-day actual · Target = DRR benchmark</div>
+  </div>
+  <div class="tbl-wrap">
+    <table><thead><tr>
+      <th>Brand / Category / SubCat / Product</th>
+      <th>Yesterday</th>
+      <th>DoD %</th>
+      <th>WoW %</th>
+      <th>4W Avg %</th>
+      <th>vs Target DRR</th>
+    </tr></thead>
+    <tbody id="pulse-body"></tbody></table>
+  </div>
+</div>
+
 <!-- ══════════════ EMAIL TAB ══════════════ -->
 <div id="tab-email" class="tab-content">
   <div class="section-hdr">📧 Daily Email — Preview &amp; Send</div>
@@ -245,7 +309,8 @@ const EMBEDDED = {
     'Be Bodywise': _empty7D(),
     'Little Joys': _empty7D(),
     'Man Matters':  _empty7D()
-  }
+  },
+  daily_pulse: { ydLabel:'—', dbLabel:'—', lwLabel:'—', lw4Labels:'—', products:[] }
 };
 function _emptyBrand(){return{apr:{qty:0,gmv:0,net_rev:0},mar:{qty:0,gmv:0,net_rev:0},mar_lmtd:{qty:0,gmv:0,net_rev:0},tgt:{qty:0,gmv:0,net_rev:0},proj:{proj_units:0,proj_gmv:0,proj_nr:0},l7:{qty:0,gmv:0,net_rev:0},p7:{qty:0,gmv:0,net_rev:0},categories:{}};}
 function _empty7D(){return{l7:{qty:0,gmv:0,net_rev:0},p7:{qty:0,gmv:0,net_rev:0},categories:{}};}
@@ -495,10 +560,18 @@ function build7DayRows(metric) {
       </tr>`;
       Object.entries(cData.subcats||{}).forEach(([sub,sData]) => {
         const sl7=gV(sData.l7,metric), sp7=gV(sData.p7,metric);
-        tbody.innerHTML += `<tr class="row-sub sub-row s7cat-${cid}">
-          <td style="padding-left:42px">${sub}</td>
+        const sid='s7s_'+cid+'_'+sub.replace(/[\s/]/g,'_');
+        tbody.innerHTML += `<tr class="row-sub sub-row s7cat-${cid}" onclick="toggle7Sub('${sid}',this)">
+          <td style="padding-left:42px"><span class="exp-icon">▸</span>${sub}</td>
           <td>${fL(sp7,metric)}</td><td>${fL(sl7,metric)}</td><td>${fPct(sl7,sp7)}</td>
         </tr>`;
+        (sData.products||[]).slice().sort((a,b)=>gV(b.l7,metric)-gV(a.l7,metric)).forEach(prod=>{
+          const pl7=gV(prod.l7,metric), pp7=gV(prod.p7,metric);
+          tbody.innerHTML += `<tr class="row-prod prod-row s7sub-${sid}">
+            <td style="padding-left:58px;font-style:italic;color:#8b949e">${prod.name}</td>
+            <td>${fL(pp7,metric)}</td><td>${fL(pl7,metric)}</td><td>${fPct(pl7,pp7)}</td>
+          </tr>`;
+        });
       });
     });
   });
@@ -520,6 +593,10 @@ function toggle7Cat(id,row) {
   row.classList.toggle('expanded');
   document.querySelectorAll('.s7cat-'+id).forEach(r=>{r.style.display=r.style.display==='table-row'?'none':'table-row';});
 }
+function toggle7Sub(id,row) {
+  row.classList.toggle('expanded');
+  document.querySelectorAll('.s7sub-'+id).forEach(r=>{r.style.display=r.style.display==='table-row'?'none':'table-row';});
+}
 
 // ── EMAIL BUILDER ──────────────────────────────────────────────────
 function buildEmailHTML() {
@@ -535,7 +612,6 @@ function buildEmailHTML() {
     const uDrr    = Number(aprQty).toLocaleString('en-IN',{maximumFractionDigits:0});
     const nrGrow  = lmtdNr>0 ? ((aprNr-lmtdNr)/lmtdNr*100).toFixed(1) : null;
     const uGrow   = lmtdQty>0 ? ((aprQty-lmtdQty)/lmtdQty*100).toFixed(1) : null;
-    // NR Tgt Ach = Proj / Target (same formula as sheet)
     const achNr   = tgtNr>0&&projNr ? (projNr/tgtNr*100).toFixed(1) : '–';
     const achColor= parseFloat(achNr)>=100?'#276749':parseFloat(achNr)>=90?'#975a16':'#c53030';
     const nrCol   = nrGrow!==null ? (parseFloat(nrGrow)>=0?'#276749':'#c53030') : '#718096';
@@ -546,22 +622,21 @@ function buildEmailHTML() {
         <tr><td style="padding:10px 12px">
           <table width="100%" style="border-collapse:collapse;font-size:11px">
             <tr>
-              <td style="color:#718096;padding:3px 0;width:52%">NR DRR</td>
+              <td style="color:#718096;padding:3px 0;width:52%">Net Revenue / day</td>
               <td style="text-align:right;font-weight:700;font-size:13px;color:#1a202c">₹${nrDrr}L</td>
               <td style="text-align:right;color:${nrCol};font-weight:600;font-size:11px;padding-left:6px">${nrGrow!==null?(parseFloat(nrGrow)>=0?'↑':'↓')+Math.abs(nrGrow)+'%':'–'}</td>
             </tr>
             <tr>
-              <td style="color:#718096;padding:3px 0">Units DRR</td>
+              <td style="color:#718096;padding:3px 0">Units / day</td>
               <td style="text-align:right;font-weight:700;font-size:13px;color:#1a202c">${uDrr}</td>
               <td style="text-align:right;color:${uCol};font-weight:600;font-size:11px;padding-left:6px">${uGrow!==null?(parseFloat(uGrow)>=0?'↑':'↓')+Math.abs(uGrow)+'%':'–'}</td>
             </tr>
             <tr><td colspan="3" style="padding:4px 0 0"><hr style="border:none;border-top:1px solid #e2e8f0;margin:0"></td></tr>
             <tr>
-              <td style="color:#718096;padding:3px 0">NR Tgt Ach</td>
+              <td style="color:#718096;padding:3px 0">Target Achievement</td>
               <td colspan="2" style="text-align:right;font-weight:800;font-size:14px;color:${achColor}">${achNr}%</td>
             </tr>
           </table>
-          <div style="font-size:9px;color:#a0aec0;margin-top:4px">Growth vs ${DATA.meta.prev_month_name||'Prev'} LMTD · Ach = Proj/Target</div>
         </td></tr>
       </table>`;
   }
@@ -688,13 +763,13 @@ function buildEmailHTML() {
     <table width="640" style="border-collapse:collapse;font-size:12px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
       <thead><tr style="background:#2d3748;color:#fff">
         <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase">Brand / Category</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">${DATA.meta.prev_month_name} DRR</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">${DATA.meta.prev_month_name} LMTD</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">${DATA.meta.prev_month_name}</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Prior Period</th>
         <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">${DATA.meta.curr_month_name} MTD</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase;color:#90cdf4">Proj</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase;color:#90cdf4">Forecast</th>
         <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase;color:#fbd38d">Target</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Tgt Ach</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">MTD Growth</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Achievement</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Growth</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -713,27 +788,25 @@ function buildEmailHTML() {
   const pMon = DATA.meta.prev_month_name || 'Prev';
 
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:'Helvetica Neue',Arial,sans-serif;background:#f7fafc;margin:0;padding:20px">
-  <table width="700" style="margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);border-collapse:collapse">
+  <a href="${DASHBOARD_URL}" style="text-decoration:none;display:block;color:inherit">
+  <table width="700" style="margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);border-collapse:collapse;cursor:pointer">
     <tr><td style="background:linear-gradient(135deg,#1a365d,#2b6cb0);padding:18px 24px">
-      <a href="${DASHBOARD_URL}" style="text-decoration:none">
-        <span style="color:#fff;font-size:18px;font-weight:800">📦 Blinkit Daily Update</span>
-      </a>
+      <span style="color:#fff;font-size:18px;font-weight:800">📦 Blinkit Daily — ${asOf}</span>
       <span style="color:#bee3f8;font-size:11px;display:block;margin-top:3px">
-        As of ${asOf} · ${cMon} 1–${mtdDays} (${mtdDays} days) · LMTD = ${pMon} 1–${mtdDays}
+        ${cMon} MTD · ${mtdDays} days · Click anywhere to open dashboard →
       </span>
-      <a href="${DASHBOARD_URL}" style="display:inline-block;margin-top:8px;background:rgba(255,255,255,0.15);color:#fff;font-size:10px;font-weight:600;padding:4px 10px;border-radius:12px;text-decoration:none">🔗 Open Dashboard →</a>
     </td></tr>
     <tr><td style="padding:16px 20px">
       <h3 style="font-size:13px;font-weight:700;color:#2d3748;margin:0 0 8px">📊 Brand Summary</h3>
       ${cardHtml}
       ${make7DayUnitSection()}
-      ${metricTable('💵 Net Revenue DRR (₹L)', 'net_rev', fmtNr)}
-      ${metricTable('📦 Units DRR', 'qty', fmtQty)}
+      ${metricTable('💵 Net Revenue', 'net_rev', fmtNr)}
+      ${metricTable('📦 Units', 'qty', fmtQty)}
     </td></tr>
     <tr><td style="background:#f7fafc;padding:12px 20px;font-size:10px;color:#718096;text-align:center">
-      Auto-generated · <a href="${DASHBOARD_URL}" style="color:#4a90e2;text-decoration:none">Mosaic Wellness Blinkit Dashboard</a> · ${new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})}
+      Mosaic Wellness · Blinkit · ${new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})}
     </td></tr>
-  </table></body></html>`;
+  </table></a></body></html>`;
 }
 
 function renderEmailTab() {
@@ -827,6 +900,225 @@ function createEmailDraft() {
   tokenClient.requestAccessToken({ prompt: '' }); // '' = silent if already consented
 }
 
+// ── DAILY PULSE RENDERING ──────────────────────────────────────────
+let PULSE_METRIC = 'net_rev';
+
+// Format a single-day absolute value
+function fDP(v, metric) {
+  if (v === null || v === undefined) return '–';
+  if (metric === 'qty') return v === 0 ? '0' : Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
+  if (v === 0) return '–';
+  const l = v / 100000;
+  if (l >= 100) return '₹' + l.toFixed(0) + 'L';
+  if (l >= 10)  return '₹' + l.toFixed(1) + 'L';
+  if (l >= 1)   return '₹' + l.toFixed(2) + 'L';
+  return '₹' + (v/1000).toFixed(1) + 'K';
+}
+// % change with colour
+function fDPPct(curr, prev) {
+  if (!prev || prev === 0) return '<span style="color:#6e7681">–</span>';
+  const p = (curr - prev) / prev * 100;
+  return `<span class="${p>=0?'pos':'neg'}">${p>=0?'↑':'↓'} ${Math.abs(p).toFixed(1)}%</span>`;
+}
+// vs DRR target (single-day actual vs daily run-rate target)
+function fDPTgt(yd, tgt) {
+  if (!tgt || tgt === 0) return '<span style="color:#6e7681">–</span>';
+  const p = (yd - tgt) / tgt * 100;
+  const color = p >= 0 ? '#3fb950' : (p >= -10 ? '#d29922' : '#f85149');
+  return `<span style="color:${color};font-weight:700">${p>=0?'↑':'↓'} ${Math.abs(p).toFixed(1)}%</span>`;
+}
+// Extract dp values (4W avg = lw4s / 4)
+function dpGet(dp, metric) {
+  if (!dp) return {yd:0, db:0, lw:0, lw4:0};
+  return {
+    yd:  dp.yd?.[metric]   || 0,
+    db:  dp.db?.[metric]   || 0,
+    lw:  dp.lw?.[metric]   || 0,
+    lw4: dp.lw4s?.[metric] ? dp.lw4s[metric] / 4 : 0
+  };
+}
+
+function renderDailyPulse() {
+  const dp = DATA.daily_pulse;
+  const h  = DATA.hierarchy;
+  if (!dp || !h) return;
+
+  // Date context bar
+  const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v||'—'; };
+  set('pd-yday',  dp.ydLabel);
+  set('pd-dbyd',  dp.dbLabel);
+  set('pd-lw',    dp.lwLabel);
+  set('pd-lw4',   dp.lw4Labels);
+
+  // Brand cards — always show NR
+  const bcEl = document.getElementById('pulse-brand-cards');
+  if (bcEl) {
+    bcEl.innerHTML = '';
+    ['Be Bodywise','Little Joys','Man Matters'].forEach(brand => {
+      const d = h[brand]; if (!d || !d.dp) return;
+      const v = dpGet(d.dp, 'net_rev');
+      const tNR = d.tgt?.net_rev || 0;
+      const dod = v.db  > 0 ? ((v.yd-v.db)/v.db*100)   : null;
+      const wow = v.lw  > 0 ? ((v.yd-v.lw)/v.lw*100)   : null;
+      const avg = v.lw4 > 0 ? ((v.yd-v.lw4)/v.lw4*100) : null;
+      const tgt = tNR   > 0 ? ((v.yd-tNR)/tNR*100)     : null;
+      const nrL = v.yd > 0 ? (v.yd/1e5).toFixed(2) : '0';
+      const fmt = n => n!==null ? `<span class="${n>=0?'pos':'neg'}">${n>=0?'↑':'↓'} ${Math.abs(n).toFixed(1)}%</span>` : '<span style="color:#6e7681">–</span>';
+      const fmtT = n => n!==null ? `<span style="color:${n>=0?'#3fb950':n>=-10?'#d29922':'#f85149'};font-weight:700">${n>=0?'↑':'↓'} ${Math.abs(n).toFixed(1)}%</span>` : '<span style="color:#6e7681">–</span>';
+      bcEl.innerHTML += `
+      <div class="card ${BSTYLE[brand]}">
+        <div class="card-label">${brand}</div>
+        <div class="card-rev">₹${nrL}L <span style="font-size:10px;color:#6e7681">NR yesterday</span></div>
+        <div class="card-metrics">
+          <div><div class="cm-label">DoD</div><div class="cm-val" style="font-size:12px">${fmt(dod)}</div></div>
+          <div><div class="cm-label">WoW</div><div class="cm-val" style="font-size:12px">${fmt(wow)}</div></div>
+          <div><div class="cm-label">4W Avg</div><div class="cm-val" style="font-size:12px">${fmt(avg)}</div></div>
+          <div><div class="cm-label">vs DRR Tgt</div><div class="cm-val" style="font-size:12px">${fmtT(tgt)}</div></div>
+        </div>
+      </div>`;
+    });
+  }
+
+  // Callouts — top 3 spikes / drops by WoW NR %
+  const gEl = document.getElementById('pulse-gainers');
+  const dEl = document.getElementById('pulse-droppers');
+  if (gEl && dp.products) {
+    const eligible = dp.products
+      .filter(p => p.yd?.net_rev > 0 && p.lw?.net_rev > 0)
+      .map(p => ({...p, _wow: (p.yd.net_rev - p.lw.net_rev) / p.lw.net_rev * 100}));
+    const gainers  = [...eligible].sort((a,b)=>b._wow-a._wow).slice(0,3);
+    const droppers = [...eligible].sort((a,b)=>a._wow-b._wow).slice(0,3);
+    const mkItem = (p, up) => {
+      const color = up ? '#3fb950' : '#f85149';
+      const nrL = (p.yd.net_rev/1e5).toFixed(2);
+      return `<div class="callout-item ${up?'callout-item-gain':'callout-item-drop'}">
+        <div style="flex:1;min-width:0">
+          <div class="ci-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name||p.iid}</div>
+          <div class="ci-brand">${p.brand} · ${p.cat}</div>
+        </div>
+        <div style="text-align:right;padding-left:10px">
+          <div class="ci-pct" style="color:${color}">${p._wow>=0?'↑':'↓'} ${Math.abs(p._wow).toFixed(1)}%</div>
+          <div class="ci-nr">₹${nrL}L yday</div>
+        </div>
+      </div>`;
+    };
+    gEl.innerHTML = gainers.length  ? gainers.map(p=>mkItem(p,true)).join('')  : '<div style="color:#6e7681;font-size:11px;padding:8px">No data</div>';
+    dEl.innerHTML = droppers.length ? droppers.map(p=>mkItem(p,false)).join('') : '<div style="color:#6e7681;font-size:11px;padding:8px">No data</div>';
+  }
+
+  // Movement table
+  buildPulseRows(PULSE_METRIC);
+}
+
+function buildPulseRows(metric) {
+  const h = DATA.hierarchy;
+  const tbody = document.getElementById('pulse-body');
+  if (!tbody || !h) return;
+  tbody.innerHTML = '';
+  const brands = ['Be Bodywise','Little Joys','Man Matters'];
+
+  brands.forEach(brand => {
+    const d = h[brand]; if (!d || !d.dp) return;
+    const bid = brand.replace(/\s/g,'_');
+    const bv  = dpGet(d.dp, metric);
+    const bTgt = d.tgt?.[metric] || 0;
+    tbody.innerHTML += `<tr class="row-brand" onclick="togglePulseBrand('${bid}',this)">
+      <td><span class="exp-icon">▸</span>${brand}</td>
+      <td>${fDP(bv.yd,metric)}</td>
+      <td>${fDPPct(bv.yd,bv.db)}</td><td>${fDPPct(bv.yd,bv.lw)}</td><td>${fDPPct(bv.yd,bv.lw4)}</td>
+      <td>${fDPTgt(bv.yd,bTgt)}</td>
+    </tr>`;
+
+    Object.entries(d.categories||{})
+      .sort(([,a],[,b])=>(b.dp?.yd?.[metric]||0)-(a.dp?.yd?.[metric]||0))
+      .forEach(([cat,cData]) => {
+        if (!cData.dp) return;
+        const cid = bid+'_'+cat.replace(/[\s/]/g,'_');
+        const cv  = dpGet(cData.dp, metric);
+        const cTgt = cData.tgt?.[metric] || 0;
+        tbody.innerHTML += `<tr class="row-cat sub-row pulse-brand-${bid}" onclick="togglePulseCat('${cid}',this)">
+          <td><span class="exp-icon">▸</span>${cat}</td>
+          <td>${fDP(cv.yd,metric)}</td>
+          <td>${fDPPct(cv.yd,cv.db)}</td><td>${fDPPct(cv.yd,cv.lw)}</td><td>${fDPPct(cv.yd,cv.lw4)}</td>
+          <td>${fDPTgt(cv.yd,cTgt)}</td>
+        </tr>`;
+
+        Object.entries(cData.subcats||{})
+          .sort(([,a],[,b])=>(b.dp?.yd?.[metric]||0)-(a.dp?.yd?.[metric]||0))
+          .forEach(([sub,sData]) => {
+            if (!sData.dp) return;
+            const sid = cid+'_'+sub.replace(/[\s/]/g,'_');
+            const sv  = dpGet(sData.dp, metric);
+            const sTgt = sData.tgt?.[metric] || 0;
+            tbody.innerHTML += `<tr class="row-sub sub-row pulse-cat-${cid}" onclick="togglePulseSub('${sid}',this)">
+              <td><span class="exp-icon">▸</span>${sub}</td>
+              <td>${fDP(sv.yd,metric)}</td>
+              <td>${fDPPct(sv.yd,sv.db)}</td><td>${fDPPct(sv.yd,sv.lw)}</td><td>${fDPPct(sv.yd,sv.lw4)}</td>
+              <td>${fDPTgt(sv.yd,sTgt)}</td>
+            </tr>`;
+
+            (sData.products||[]).slice()
+              .sort((a,b)=>(b.dp?.yd?.[metric]||0)-(a.dp?.yd?.[metric]||0))
+              .forEach(prod => {
+                if (!prod.dp) return;
+                const pv  = dpGet(prod.dp, metric);
+                const pTgt = metric==='net_rev' ? (prod.tgt?.net_rev||0) : (prod.tgt?.[metric]||0);
+                tbody.innerHTML += `<tr class="row-prod prod-row pulse-sub-${sid}">
+                  <td style="padding-left:58px;font-style:italic;color:#8b949e">${prod.name||prod.item_id}</td>
+                  <td>${fDP(pv.yd,metric)}</td>
+                  <td>${fDPPct(pv.yd,pv.db)}</td><td>${fDPPct(pv.yd,pv.lw)}</td><td>${fDPPct(pv.yd,pv.lw4)}</td>
+                  <td>${fDPTgt(pv.yd,pTgt)}</td>
+                </tr>`;
+              });
+          });
+      });
+  });
+
+  // Grand total
+  const tYD   = brands.reduce((s,b)=>s+(h[b]?.dp?.yd?.[metric]   ||0),0);
+  const tDB   = brands.reduce((s,b)=>s+(h[b]?.dp?.db?.[metric]   ||0),0);
+  const tLW   = brands.reduce((s,b)=>s+(h[b]?.dp?.lw?.[metric]   ||0),0);
+  const tLW4s = brands.reduce((s,b)=>s+(h[b]?.dp?.lw4s?.[metric] ||0),0);
+  const tTgt  = brands.reduce((s,b)=>s+(h[b]?.tgt?.[metric]      ||0),0);
+  tbody.innerHTML += `<tr class="row-grand">
+    <td>GRAND TOTAL</td>
+    <td>${fDP(tYD,metric)}</td>
+    <td>${fDPPct(tYD,tDB)}</td><td>${fDPPct(tYD,tLW)}</td><td>${fDPPct(tYD,tLW4s/4)}</td>
+    <td>${fDPTgt(tYD,tTgt)}</td>
+  </tr>`;
+}
+
+function setPulseMetric(m,evt) {
+  PULSE_METRIC = m;
+  document.querySelectorAll('#pulse-metric-sel .metric-btn').forEach(b=>b.classList.remove('active'));
+  evt.target.classList.add('active');
+  buildPulseRows(m);
+}
+function togglePulseBrand(id,row) {
+  row.classList.toggle('expanded');
+  document.querySelectorAll('.pulse-brand-'+id).forEach(r=>{
+    r.style.display=r.style.display==='table-row'?'none':'table-row';
+    if(r.style.display==='none'){r.classList.remove('expanded');
+      const cid=r.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+      if(cid) document.querySelectorAll('.pulse-cat-'+cid+',.pulse-sub-'+cid).forEach(x=>{x.style.display='none';x.classList.remove('expanded');});
+    }
+  });
+}
+function togglePulseCat(id,row) {
+  row.classList.toggle('expanded');
+  document.querySelectorAll('.pulse-cat-'+id).forEach(r=>{
+    r.style.display=r.style.display==='table-row'?'none':'table-row';
+    if(r.style.display==='none'){r.classList.remove('expanded');
+      const sid=r.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+      if(sid) document.querySelectorAll('.pulse-sub-'+sid).forEach(x=>{x.style.display='none';});
+    }
+  });
+}
+function togglePulseSub(id,row) {
+  row.classList.toggle('expanded');
+  document.querySelectorAll('.pulse-sub-'+id).forEach(r=>{r.style.display=r.style.display==='table-row'?'none':'table-row';});
+}
+
 // ── TAB SWITCH ─────────────────────────────────────────────────────
 function switchTab(tab, evt) {
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -834,6 +1126,7 @@ function switchTab(tab, evt) {
   evt.target.classList.add('active');
   document.getElementById('tab-'+tab).classList.add('active');
   if (tab==='seven') { render7DayCards(); build7DayRows(METRIC7); }
+  if (tab==='pulse') renderDailyPulse();
   if (tab==='email') renderEmailTab();
 }
 
@@ -1106,7 +1399,12 @@ function processAllData(nbJson, tgtJson, projByIdMap) {
       lQty:0, lGmv:0, lNr:0,   // prev month LMTD (days 1..mtdDays)
       pQty:0, pGmv:0, pNr:0,   // prev month ALL days (full-month DRR)
       l7q:0,  l7g:0,  l7n:0,   // last 7 days ending latestDate
-      p7q:0,  p7g:0,  p7n:0    // prior 7 days (8–14 days before latestDate)
+      p7q:0,  p7g:0,  p7n:0,   // prior 7 days (8–14 days before latestDate)
+      // Daily Pulse accumulators
+      ydQ:0,  ydG:0,  ydN:0,   // yesterday = latestDate
+      dbQ:0,  dbG:0,  dbN:0,   // day-before-yesterday = latestDate-1
+      lwQ:0,  lwG:0,  lwN:0,   // same day last week = latestDate-7
+      lw4Q:0, lw4G:0, lw4N:0  // sum of latestDate-7/14/21/28 (4W avg numerator)
     };
     const p = prods[iid];
     // Always keep freshest name/category metadata
@@ -1134,15 +1432,24 @@ function processAllData(nbJson, tgtJson, projByIdMap) {
     // P7D: 7 days before the L7D window
     if (dTs >= p7StartTs && dTs <= p7EndTs)
       { p.p7q+=qty; p.p7g+=gmv; p.p7n+=nr; }
+
+    // Daily Pulse: yesterday, DoD, WoW, 4W (exact day matches via timestamp)
+    if (dTs === latestTs)               { p.ydQ+=qty; p.ydG+=gmv; p.ydN+=nr; }
+    if (dTs === latestTs - DAY_MS)      { p.dbQ+=qty; p.dbG+=gmv; p.dbN+=nr; }
+    if (dTs === latestTs - 7*DAY_MS)    { p.lwQ+=qty; p.lwG+=gmv; p.lwN+=nr; }
+    for (let w=1; w<=4; w++) {
+      if (dTs === latestTs - w*7*DAY_MS){ p.lw4Q+=qty; p.lw4G+=gmv; p.lw4N+=nr; }
+    }
   });
   console.log(`  Rows processed: ${rowsProcessed} | Products found: ${Object.keys(prods).length}`);
 
   // ── 4. Build hierarchy ───────────────────────────────────────────
   const mkMetrics = () => ({qty:0,gmv:0,net_rev:0});
   const mkProj    = () => ({proj_units:0,proj_gmv:0,proj_nr:0});
-  const mkBrand   = () => ({apr:mkMetrics(),mar:mkMetrics(),mar_lmtd:mkMetrics(),tgt:mkMetrics(),proj:mkProj(),l7:mkMetrics(),p7:mkMetrics(),categories:{}});
-  const mkCat     = () => ({apr:mkMetrics(),mar:mkMetrics(),mar_lmtd:mkMetrics(),tgt:mkMetrics(),proj:mkProj(),l7:mkMetrics(),p7:mkMetrics(),subcats:{}});
-  const mkSub     = () => ({apr:mkMetrics(),mar:mkMetrics(),mar_lmtd:mkMetrics(),tgt:mkMetrics(),proj:mkProj(),l7:mkMetrics(),p7:mkMetrics(),products:[]});
+  const mkDP      = () => ({yd:mkMetrics(),db:mkMetrics(),lw:mkMetrics(),lw4s:mkMetrics()});
+  const mkBrand   = () => ({apr:mkMetrics(),mar:mkMetrics(),mar_lmtd:mkMetrics(),tgt:mkMetrics(),proj:mkProj(),l7:mkMetrics(),p7:mkMetrics(),dp:mkDP(),categories:{}});
+  const mkCat     = () => ({apr:mkMetrics(),mar:mkMetrics(),mar_lmtd:mkMetrics(),tgt:mkMetrics(),proj:mkProj(),l7:mkMetrics(),p7:mkMetrics(),dp:mkDP(),subcats:{}});
+  const mkSub     = () => ({apr:mkMetrics(),mar:mkMetrics(),mar_lmtd:mkMetrics(),tgt:mkMetrics(),proj:mkProj(),l7:mkMetrics(),p7:mkMetrics(),dp:mkDP(),products:[]});
 
   const h = {};
   ['Be Bodywise','Little Joys','Man Matters'].forEach(b => h[b] = mkBrand());
@@ -1185,7 +1492,13 @@ function processAllData(nbJson, tgtJson, projByIdMap) {
       tgt:      {qty:tgt.qty, gmv:tgt.gmv, net_rev:tgt.nr},
       proj:     {proj_units:pUnits, proj_gmv:pGmv, proj_nr:pNr},
       l7:       {qty:l7Q, gmv:l7G, net_rev:l7N},
-      p7:       {qty:p7Q, gmv:p7G, net_rev:p7N}
+      p7:       {qty:p7Q, gmv:p7G, net_rev:p7N},
+      dp: {
+        yd:  {qty:p.ydQ,  gmv:p.ydG,  net_rev:p.ydN},
+        db:  {qty:p.dbQ,  gmv:p.dbG,  net_rev:p.dbN},
+        lw:  {qty:p.lwQ,  gmv:p.lwG,  net_rev:p.lwN},
+        lw4s:{qty:p.lw4Q, gmv:p.lw4G, net_rev:p.lw4N}
+      }
     };
     hs.products.push(prod);
 
@@ -1198,6 +1511,11 @@ function processAllData(nbJson, tgtJson, projByIdMap) {
       node.proj.proj_units+=pUnits; node.proj.proj_gmv+=pGmv; node.proj.proj_nr+=pNr;
       node.l7.qty+=l7Q; node.l7.gmv+=l7G; node.l7.net_rev+=l7N;
       node.p7.qty+=p7Q; node.p7.gmv+=p7G; node.p7.net_rev+=p7N;
+      // Daily Pulse rollup (raw sums — divided at render time)
+      node.dp.yd.qty+=p.ydQ;   node.dp.yd.gmv+=p.ydG;   node.dp.yd.net_rev+=p.ydN;
+      node.dp.db.qty+=p.dbQ;   node.dp.db.gmv+=p.dbG;   node.dp.db.net_rev+=p.dbN;
+      node.dp.lw.qty+=p.lwQ;   node.dp.lw.gmv+=p.lwG;   node.dp.lw.net_rev+=p.lwN;
+      node.dp.lw4s.qty+=p.lw4Q; node.dp.lw4s.gmv+=p.lw4G; node.dp.lw4s.net_rev+=p.lw4N;
     });
   });
 
@@ -1216,7 +1534,7 @@ function processAllData(nbJson, tgtJson, projByIdMap) {
     Object.entries(hb.categories).forEach(([cat,hc]) => {
       sd[brand].categories[cat] = { l7: hc.l7, p7: hc.p7, subcats: {} };
       Object.entries(hc.subcats).forEach(([sub,hs]) => {
-        sd[brand].categories[cat].subcats[sub] = { l7: hs.l7, p7: hs.p7 };
+        sd[brand].categories[cat].subcats[sub] = { l7: hs.l7, p7: hs.p7, products: hs.products };
       });
     });
   });
@@ -1227,6 +1545,19 @@ function processAllData(nbJson, tgtJson, projByIdMap) {
   const l7Max = new Date(l7EndTs);
   const p7Min = new Date(p7StartTs);
   const p7Max = new Date(p7EndTs);
+
+  // ── 5b. Build daily_pulse products list (for callouts) ───────────
+  const dpProds = Object.entries(prods).map(([iid, p]) => {
+    const tgt = tgtById[iid] || tgtBySku[p.sku] || {qty:0,gmv:0,nr:0};
+    return {
+      iid, name:p.name, brand:p.brand, cat:p.cat,
+      yd:  {qty:p.ydQ,  gmv:p.ydG,  net_rev:p.ydN},
+      db:  {qty:p.dbQ,  gmv:p.dbG,  net_rev:p.dbN},
+      lw:  {qty:p.lwQ,  gmv:p.lwG,  net_rev:p.lwN},
+      lw4s:{qty:p.lw4Q, gmv:p.lw4G, net_rev:p.lw4N},
+      tgt
+    };
+  });
 
   // ── 7. Write back to DATA ─────────────────────────────────────────
   DATA.hierarchy = h;
@@ -1243,6 +1574,13 @@ function processAllData(nbJson, tgtJson, projByIdMap) {
     l7_start: fmtD(l7Min), l7_end: fmtD(l7Max),
     p7_start: fmtD(p7Min), p7_end: fmtD(p7Max)
   });
+  DATA.daily_pulse = {
+    ydLabel:   fmtD(latestDate),
+    dbLabel:   fmtD(new Date(latestTs - DAY_MS)),
+    lwLabel:   fmtD(new Date(latestTs - 7*DAY_MS)),
+    lw4Labels: [7,14,21,28].map(n => fmtD(new Date(latestTs - n*DAY_MS))).join(', '),
+    products:  dpProds
+  };
 
   // ── 8. Update dynamic labels in DOM ──────────────────────────────
   document.querySelectorAll('.th-prev-drr').forEach(el  => el.textContent = pName+' DRR');
@@ -1267,6 +1605,7 @@ function reRenderAll() {
   buildRows('gmv',    'gmv-body');
   buildRows('net_rev','rev-body');
   if (typeof build7DayRows === 'function') build7DayRows(METRIC7||'qty');
+  if (typeof renderDailyPulse === 'function') renderDailyPulse();
 }
 
 // ── AUTO REFRESH AT 11AM IST ────────────────────────────────────────

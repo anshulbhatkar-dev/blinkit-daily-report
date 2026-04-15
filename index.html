@@ -867,25 +867,17 @@ function refreshData() {
 
   const SID = DATA.meta.sheet_id;
 
-  // Use system date only to build the query window: fetch curr + prev calendar month.
-  const sys   = new Date();
-  const sysY  = sys.getFullYear();
-  const sysM  = sys.getMonth() + 1;
-  const sysP  = sysM === 1 ? 12 : sysM - 1;
-  const sysPY = sysM === 1 ? sysY - 1 : sysY;
-
-  // Date filter: curr month + prev month
-  let dateFlt;
-  if (sysM === 1)
-    dateFlt = `(year(A)=${sysY} and month(A)=1) or (year(A)=${sysPY} and month(A)=12)`;
-  else
-    dateFlt = `year(A)=${sysY} and (month(A)=${sysM} or month(A)=${sysP})`;
+  // Year used only to scope the New Base query to current year.
+  // All month/day filtering is done in processAllData from the actual max date in data.
+  const sys  = new Date();
+  const sysY = sys.getFullYear();
 
   // ── New Base (GID 1168753412) ─────────────────────────────────────
-  // select A,C,E,F,I,K,P,Q,U,Z where B='Blinkit' → idx 0–9
+  // Fetch full current year for Blinkit — JavaScript handles month filtering.
+  // GViz month() filter can silently drop rows; year-only is more reliable.
   const nbCols  = 'A,C,E,F,I,K,P,Q,U,Z';
-  const nbWhere = `B='Blinkit' and (${dateFlt})`;
-  const nbTql   = encodeURIComponent(`select ${nbCols} where ${nbWhere}`);
+  const nbWhere = `B='Blinkit' and year(A)=${sysY}`;
+  const nbTql   = encodeURIComponent(`select ${nbCols} where ${nbWhere} order by A`);
 
   // ── AOP Target (GID 629606959, headers=3) ─────────────────────────
   // select A,C,G,J,K,L where C='Blinkit' → idx 0–5

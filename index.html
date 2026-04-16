@@ -619,183 +619,9 @@ function buildEmailHTML() {
   const h = DATA.hierarchy, m = DATA.meta;
   const asOf = m.as_of || 'Latest';
   const brands = ['Be Bodywise','Little Joys','Man Matters'];
-  const BC = {'Be Bodywise':'#2b6cb0','Little Joys':'#276749','Man Matters':'#975a16'};
-  const BG = {'Be Bodywise':'#ebf8ff','Little Joys':'#f0fff4','Man Matters':'#fffaf0'};
-
-  // Helper: build one summary card
-  function makeCard(label, bc, bg, aprNr, lmtdNr, aprQty, lmtdQty, projNr, tgtNr) {
-    const nrDrr   = (aprNr/1e5).toFixed(1);
-    const uDrr    = Number(aprQty).toLocaleString('en-IN',{maximumFractionDigits:0});
-    const nrGrow  = lmtdNr>0 ? ((aprNr-lmtdNr)/lmtdNr*100).toFixed(1) : null;
-    const uGrow   = lmtdQty>0 ? ((aprQty-lmtdQty)/lmtdQty*100).toFixed(1) : null;
-    const achNr   = tgtNr>0&&projNr ? (projNr/tgtNr*100).toFixed(1) : '–';
-    const achColor= parseFloat(achNr)>=100?'#276749':parseFloat(achNr)>=90?'#975a16':'#c53030';
-    const nrCol   = nrGrow!==null ? (parseFloat(nrGrow)>=0?'#276749':'#c53030') : '#718096';
-    const uCol    = uGrow!==null  ? (parseFloat(uGrow)>=0?'#276749':'#c53030')  : '#718096';
-    return `
-      <table width="100%" style="background:${bg};border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;border-collapse:collapse">
-        <tr><td style="background:${bc};padding:7px 12px;color:#fff;font-weight:700;font-size:12px">${label}</td></tr>
-        <tr><td style="padding:10px 12px">
-          <table width="100%" style="border-collapse:collapse;font-size:11px">
-            <tr>
-              <td style="color:#718096;padding:3px 0;width:52%">Net Revenue / day</td>
-              <td style="text-align:right;font-weight:700;font-size:13px;color:#1a202c">₹${nrDrr}L</td>
-              <td style="text-align:right;color:${nrCol};font-weight:600;font-size:11px;padding-left:6px">${nrGrow!==null?(parseFloat(nrGrow)>=0?'↑':'↓')+Math.abs(nrGrow)+'%':'–'}</td>
-            </tr>
-            <tr>
-              <td style="color:#718096;padding:3px 0">Units / day</td>
-              <td style="text-align:right;font-weight:700;font-size:13px;color:#1a202c">${uDrr}</td>
-              <td style="text-align:right;color:${uCol};font-weight:600;font-size:11px;padding-left:6px">${uGrow!==null?(parseFloat(uGrow)>=0?'↑':'↓')+Math.abs(uGrow)+'%':'–'}</td>
-            </tr>
-            <tr><td colspan="3" style="padding:4px 0 0"><hr style="border:none;border-top:1px solid #e2e8f0;margin:0"></td></tr>
-            <tr>
-              <td style="color:#718096;padding:3px 0">Target Achievement</td>
-              <td colspan="2" style="text-align:right;font-weight:800;font-size:14px;color:${achColor}">${achNr}%</td>
-            </tr>
-          </table>
-        </td></tr>
-      </table>`;
-  }
-
-  // Part 1 — Brand cards (3 brands + 1 total)
-  const totAprNr  = brands.reduce((s,b)=>s+(h[b]?.apr?.net_rev||0),0);
-  const totLmtdNr = brands.reduce((s,b)=>s+(h[b]?.mar_lmtd?.net_rev||0),0);
-  const totAprQty = brands.reduce((s,b)=>s+(h[b]?.apr?.qty||0),0);
-  const totLmtdQty= brands.reduce((s,b)=>s+(h[b]?.mar_lmtd?.qty||0),0);
-  const totProjNr = brands.reduce((s,b)=>s+(h[b]?.proj?.proj_nr||0),0);
-  const totTgtNr  = brands.reduce((s,b)=>s+(h[b]?.tgt?.net_rev||0),0);
-
-  // All 4 cards in ONE row at 25% each
-  const brandCardTds = brands.map(brand => {
-    const d = h[brand]; if(!d) return '<td></td>';
-    return `<td width="25%" style="padding:4px;vertical-align:top">${makeCard(
-      brand, BC[brand], BG[brand],
-      d.apr.net_rev, d.mar_lmtd?.net_rev||0,
-      d.apr.qty,     d.mar_lmtd?.qty||0,
-      d.proj?.proj_nr||0, d.tgt.net_rev
-    )}</td>`;
-  }).join('');
-
-  const totalCardTd = `<td width="25%" style="padding:4px;vertical-align:top">${makeCard(
-    '🏁 All Brands', '#2d3748', '#f7fafc',
-    totAprNr, totLmtdNr, totAprQty, totLmtdQty, totProjNr, totTgtNr
-  )}</td>`;
-
-  const cardHtml = `<table width="100%" style="border-collapse:collapse"><tr>${brandCardTds}${totalCardTd}</tr></table>`;
-
-  // 7-day units section (brand + category)
-  function make7DayUnitSection() {
-    const sd = DATA.seven_day, meta = DATA.meta;
-    if (!sd) return '';
-    const l7Label = meta.l7_start && meta.l7_end ? `${meta.l7_start} → ${meta.l7_end}` : 'Last 7 Days';
-    const p7Label = meta.p7_start && meta.p7_end ? `${meta.p7_start} → ${meta.p7_end}` : 'Prev 7 Days';
-    let rows = '';
-    const BG7 = {'Be Bodywise':'#ebf8ff','Little Joys':'#f0fff4','Man Matters':'#fffaf0'};
-    const BD7 = {'Be Bodywise':'#bee3f8','Little Joys':'#9ae6b4','Man Matters':'#fbd38d'};
-    brands.forEach(brand => {
-      const d = sd[brand]; if (!d) return;
-      const bl7 = d.l7?.qty||0, bp7 = d.p7?.qty||0;
-      const bPct = bp7>0 ? ((bl7-bp7)/bp7*100).toFixed(1) : null;
-      const bCol = bPct!==null ? (parseFloat(bPct)>=0?'#276749':'#c53030') : '#718096';
-      rows += `<tr style="background:${BG7[brand]};border-bottom:2px solid ${BD7[brand]}">
-        <td style="padding:7px 10px;font-weight:700;color:#1a202c">${brand}</td>
-        <td style="padding:7px 10px;text-align:right;font-weight:600">${Number(bp7).toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
-        <td style="padding:7px 10px;text-align:right;font-weight:700">${Number(bl7).toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
-        <td style="padding:7px 10px;text-align:right;font-weight:700;color:${bCol}">${bPct!==null?(parseFloat(bPct)>=0?'↑':'↓')+Math.abs(bPct)+'%':'–'}</td>
-      </tr>`;
-      Object.entries(d.categories||{})
-        .sort(([,a],[,b])=>(b.l7?.qty||0)-(a.l7?.qty||0))
-        .forEach(([cat,cData]) => {
-          const cl7=cData.l7?.qty||0, cp7=cData.p7?.qty||0;
-          const cPct = cp7>0 ? ((cl7-cp7)/cp7*100).toFixed(1) : null;
-          const cCol = cPct!==null ? (parseFloat(cPct)>=0?'#276749':'#c53030') : '#718096';
-          rows += `<tr style="background:#fff;border-bottom:1px solid #e2e8f0">
-            <td style="padding:5px 10px 5px 22px;color:#2d3748;font-size:11px;font-weight:600">${cat}</td>
-            <td style="padding:5px 10px;text-align:right;font-size:11px">${Number(cp7).toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
-            <td style="padding:5px 10px;text-align:right;font-size:11px;font-weight:600">${Number(cl7).toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
-            <td style="padding:5px 10px;text-align:right;font-size:11px;font-weight:600;color:${cCol}">${cPct!==null?(parseFloat(cPct)>=0?'↑':'↓')+Math.abs(cPct)+'%':'–'}</td>
-          </tr>`;
-        });
-    });
-    return `<h3 style="font-size:13px;font-weight:700;color:#2d3748;margin:20px 0 8px">📈 Units DRR — Last 7 Days vs Previous 7 Days</h3>
-    <table width="640" style="border-collapse:collapse;font-size:12px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
-      <thead><tr style="background:#2d3748;color:#fff">
-        <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase">Brand / Category</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Prev 7D (${p7Label})</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Last 7D (${l7Label})</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">WoW Change</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-  }
-
-  // Parts 2-4 — Metric Tables (Brand > Category only)
-  function metricTable(label, metricKey, formatFn) {
-    let rows = '';
-    const BRAND_BG = {'Be Bodywise':'#ebf8ff','Little Joys':'#f0fff4','Man Matters':'#fffaf0'};
-    const BRAND_BD = {'Be Bodywise':'#bee3f8','Little Joys':'#9ae6b4','Man Matters':'#fbd38d'};
-    brands.forEach(brand => {
-      const d = h[brand]; if(!d) return;
-      const bApr=gV(d.apr,metricKey), bMar=gV(d.mar,metricKey), bLmtd=gLmtd(d,metricKey);
-      const bTgt=gV(d.tgt,metricKey), bProj=gProj(d,metricKey);
-      const bAch = bProj || bApr;   // proj if exists, else actual
-      const achPct = bTgt>0?(bAch/bTgt*100).toFixed(1):'–';
-      const achColor = parseFloat(achPct)>=100?'#276749':parseFloat(achPct)>=90?'#975a16':'#c53030';
-      const mtdG = bLmtd>0?((bApr-bLmtd)/bLmtd*100).toFixed(1):0;
-      // Brand row
-      rows += `<tr style="background:${BRAND_BG[brand]};border-bottom:2px solid ${BRAND_BD[brand]}">
-        <td style="padding:7px 10px;font-weight:700;color:#1a202c">${brand}</td>
-        <td style="padding:7px 10px;text-align:right;font-weight:600">${formatFn(bMar)}</td>
-        <td style="padding:7px 10px;text-align:right;font-weight:600">${formatFn(bLmtd)}</td>
-        <td style="padding:7px 10px;text-align:right;font-weight:700">${formatFn(bApr)}</td>
-        <td style="padding:7px 10px;text-align:right;color:#2b6cb0;font-weight:600">${bProj?formatFn(bProj):'–'}</td>
-        <td style="padding:7px 10px;text-align:right;color:#975a16">${formatFn(bTgt)}</td>
-        <td style="padding:7px 10px;text-align:right;font-weight:700;color:${achColor}">${achPct}%</td>
-        <td style="padding:7px 10px;text-align:right;color:${parseFloat(mtdG)>=0?'#276749':'#c53030'};font-weight:600">${parseFloat(mtdG)>=0?'↑':'↓'} ${Math.abs(mtdG)}%</td>
-      </tr>`;
-      // Category rows only (sorted descending) — no subcategory
-      Object.entries(d.categories||{})
-        .sort(([,a],[,b]) => gV(b.apr,metricKey) - gV(a.apr,metricKey))
-        .forEach(([cat,cData]) => {
-        const cApr=gV(cData.apr,metricKey), cMar=gV(cData.mar,metricKey), cLmtd=gLmtd(cData,metricKey);
-        const cTgt=gV(cData.tgt,metricKey), cProj=gProj(cData,metricKey);
-        const cAchV = cProj || cApr;
-        const cAch = cTgt>0?(cAchV/cTgt*100).toFixed(1):'–';
-        const cAchCol = parseFloat(cAch)>=100?'#276749':parseFloat(cAch)>=90?'#975a16':'#c53030';
-        const cG = cLmtd>0?((cApr-cLmtd)/cLmtd*100).toFixed(1):0;
-        rows += `<tr style="background:#fff;border-bottom:1px solid #e2e8f0">
-          <td style="padding:5px 10px 5px 22px;color:#2d3748;font-weight:600;font-size:11px">${cat}</td>
-          <td style="padding:5px 10px;text-align:right;font-size:11px">${formatFn(cMar)}</td>
-          <td style="padding:5px 10px;text-align:right;font-size:11px">${formatFn(cLmtd)}</td>
-          <td style="padding:5px 10px;text-align:right;font-size:11px;font-weight:600">${formatFn(cApr)}</td>
-          <td style="padding:5px 10px;text-align:right;font-size:11px;color:#2b6cb0">${cProj?formatFn(cProj):'–'}</td>
-          <td style="padding:5px 10px;text-align:right;font-size:11px;color:#975a16">${formatFn(cTgt)}</td>
-          <td style="padding:5px 10px;text-align:right;font-size:11px;font-weight:600;color:${cAchCol}">${cAch}%</td>
-          <td style="padding:5px 10px;text-align:right;font-size:11px;color:${parseFloat(cG)>=0?'#276749':'#c53030'}">${parseFloat(cG)>=0?'↑':'↓'} ${Math.abs(cG)}%</td>
-        </tr>`;
-      });
-    });
-    return `<h3 style="font-size:13px;font-weight:700;color:#2d3748;margin:20px 0 8px">${label}</h3>
-    <table width="640" style="border-collapse:collapse;font-size:12px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
-      <thead><tr style="background:#2d3748;color:#fff">
-        <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase">Brand / Category</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">${DATA.meta.prev_month_name}</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Prior Period</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">${DATA.meta.curr_month_name} MTD</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase;color:#90cdf4">Forecast</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase;color:#fbd38d">Target</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Achievement</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase">Growth</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-  }
-
-  const fmtNr = v => v && v>0 ? '₹'+(v/1e5).toFixed(1)+'L' : '–';
-  const fmtGmv = v => v && v>0 ? '₹'+(v/1e5).toFixed(1)+'L' : '–';
-  const fmtQty = v => v ? Number(v).toLocaleString('en-IN',{maximumFractionDigits:0}) : '–';
-
+  const BC  = {'Be Bodywise':'#2b6cb0','Little Joys':'#276749','Man Matters':'#975a16'};
   const DASHBOARD_URL = 'https://blinkit-ads-dashboard-zj65.vercel.app/';
+
   const mtdDays = DATA.meta.apr_days || (()=>{
     const istNow = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
     return istNow.getDate()-1;
@@ -803,26 +629,241 @@ function buildEmailHTML() {
   const cMon = DATA.meta.curr_month_name || 'Curr';
   const pMon = DATA.meta.prev_month_name || 'Prev';
 
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:'Helvetica Neue',Arial,sans-serif;background:#f7fafc;margin:0;padding:20px">
-  <a href="${DASHBOARD_URL}" style="text-decoration:none;display:block;color:inherit">
-  <table width="700" style="margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);border-collapse:collapse;cursor:pointer">
-    <tr><td style="background:linear-gradient(135deg,#1a365d,#2b6cb0);padding:18px 24px">
-      <span style="color:#fff;font-size:18px;font-weight:800">📦 Blinkit Daily — ${asOf}</span>
-      <span style="color:#bee3f8;font-size:11px;display:block;margin-top:3px">
-        ${cMon} MTD · ${mtdDays} days · Click anywhere to open dashboard →
-      </span>
-    </td></tr>
-    <tr><td style="padding:16px 20px">
-      <h3 style="font-size:13px;font-weight:700;color:#2d3748;margin:0 0 8px">📊 Brand Summary</h3>
-      ${cardHtml}
-      ${make7DayUnitSection()}
-      ${metricTable('💵 Net Revenue', 'net_rev', fmtNr)}
-      ${metricTable('📦 Units', 'qty', fmtQty)}
-    </td></tr>
-    <tr><td style="background:#f7fafc;padding:12px 20px;font-size:10px;color:#718096;text-align:center">
-      Mosaic Wellness · Blinkit · ${new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})}
-    </td></tr>
-  </table></a></body></html>`;
+  // ── Helpers ────────────────────────────────────────────────────────
+  const fmtNr  = v => v && v>0 ? '₹'+(v/1e5).toFixed(1)+'L' : '–';
+  const fmtQty = v => v ? Number(v).toLocaleString('en-IN',{maximumFractionDigits:0}) : '–';
+  const fmtPct = (curr, prev) => {
+    if (!prev || prev <= 0) return null;
+    return ((curr-prev)/prev*100).toFixed(1);
+  };
+  const fmtAch = (proj, tgt) => (tgt>0 && proj) ? (proj/tgt*100).toFixed(1) : null;
+  const colAch  = p => p===null?'#718096':parseFloat(p)>=100?'#276749':parseFloat(p)>=90?'#975a16':'#c53030';
+  const colChg  = p => p===null?'#718096':parseFloat(p)>=0?'#276749':'#c53030';
+  const arw     = p => parseFloat(p)>=0 ? '↑' : '↓';
+  const TH      = (txt,col) => `<td style="padding:6px 10px;text-align:right;font-size:9px;font-weight:700;color:${col||'#a0aec0'};text-transform:uppercase;letter-spacing:.4px;background:#f7fafc;border-bottom:2px solid #e2e8f0;white-space:nowrap">${txt}</td>`;
+  const THL     = txt => `<td style="padding:6px 10px;text-align:left;font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.4px;background:#f7fafc;border-bottom:2px solid #e2e8f0">` + txt + `</td>`;
+
+  // ── Per-brand block: header + progress bar + NR/Units rows + cat rows ──
+  function makeBrandBlock(brand) {
+    const d = h[brand]; if (!d) return '';
+    const bc = BC[brand];
+    // NR
+    const aprNr=gV(d.apr,'net_rev'), marNr=gV(d.mar,'net_rev'), lmtdNr=gLmtd(d,'net_rev');
+    const projNr=gProj(d,'net_rev'), tgtNr=gV(d.tgt,'net_rev');
+    const nrChg = fmtPct(aprNr, lmtdNr);
+    const nrAch = fmtAch(projNr||aprNr, tgtNr);
+    const nrAchBar = Math.min(100, parseFloat(nrAch)||0);
+    // Units
+    const aprQty=gV(d.apr,'qty'), marQty=gV(d.mar,'qty'), lmtdQty=gLmtd(d,'qty');
+    const projQty=gProj(d,'qty'), tgtQty=gV(d.tgt,'qty');
+    const qtyChg = fmtPct(aprQty, lmtdQty);
+    const qtyAch = fmtAch(projQty||aprQty, tgtQty);
+
+    // Category rows (sorted by MTD NR desc)
+    const catRows = Object.entries(d.categories||{})
+      .sort(([,a],[,b])=>gV(b.apr,'net_rev')-gV(a.apr,'net_rev'))
+      .map(([cat,cd]) => {
+        const cAprNr=gV(cd.apr,'net_rev'), cMarNr=gV(cd.mar,'net_rev'), cLmtdNr=gLmtd(cd,'net_rev');
+        const cProjNr=gProj(cd,'net_rev'), cTgtNr=gV(cd.tgt,'net_rev');
+        const cAprQty=gV(cd.apr,'qty'), cLmtdQty=gLmtd(cd,'qty'), cTgtQty=gV(cd.tgt,'qty'), cProjQty=gProj(cd,'qty');
+        const cNrChg=fmtPct(cAprNr,cLmtdNr), cNrAch=fmtAch(cProjNr||cAprNr,cTgtNr);
+        const cQtyChg=fmtPct(cAprQty,cLmtdQty), cQtyAch=fmtAch(cProjQty||cAprQty,cTgtQty);
+        return `
+        <tr style="border-bottom:1px solid #f0f4f8">
+          <td style="padding:5px 10px 5px 20px;font-size:11px;font-weight:600;color:#4a5568" colspan="2">${cat}</td>
+          <td style="padding:5px 10px;text-align:right;font-size:11px;color:#718096">${fmtNr(cMarNr)}</td>
+          <td style="padding:5px 10px;text-align:right;font-size:11px;color:#718096">${fmtNr(cLmtdNr)}</td>
+          <td style="padding:5px 10px;text-align:right;font-size:11px;font-weight:700;color:#1a202c">${fmtNr(cAprNr)}</td>
+          <td style="padding:5px 10px;text-align:right;font-size:11px;color:#2b6cb0">${cProjNr?fmtNr(cProjNr):'–'}</td>
+          <td style="padding:5px 10px;text-align:right;font-size:11px;color:#975a16">${fmtNr(cTgtNr)}</td>
+          <td style="padding:5px 10px;text-align:right;font-size:11px;font-weight:700;color:${colAch(cNrAch)}">${cNrAch!==null?cNrAch+'%':'–'}</td>
+          <td style="padding:5px 10px;text-align:right;font-size:11px;font-weight:700;color:${colChg(cNrChg)}">${cNrChg!==null?arw(cNrChg)+Math.abs(cNrChg)+'%':'–'}</td>
+        </tr>
+        <tr style="border-bottom:2px solid #edf2f7">
+          <td style="padding:3px 10px 6px 20px;font-size:10px;color:#a0aec0" colspan="2">↳ units</td>
+          <td style="padding:3px 10px 6px;text-align:right;font-size:10px;color:#a0aec0">${fmtQty(gV(cd.mar,'qty'))}</td>
+          <td style="padding:3px 10px 6px;text-align:right;font-size:10px;color:#a0aec0">${fmtQty(cLmtdQty)}</td>
+          <td style="padding:3px 10px 6px;text-align:right;font-size:10px;font-weight:600;color:#4a5568">${fmtQty(cAprQty)}</td>
+          <td style="padding:3px 10px 6px;text-align:right;font-size:10px;color:#2b6cb0">${cProjQty?fmtQty(cProjQty):'–'}</td>
+          <td style="padding:3px 10px 6px;text-align:right;font-size:10px;color:#975a16">${fmtQty(cTgtQty)}</td>
+          <td style="padding:3px 10px 6px;text-align:right;font-size:10px;font-weight:700;color:${colAch(cQtyAch)}">${cQtyAch!==null?cQtyAch+'%':'–'}</td>
+          <td style="padding:3px 10px 6px;text-align:right;font-size:10px;font-weight:700;color:${colChg(cQtyChg)}">${cQtyChg!==null?arw(cQtyChg)+Math.abs(cQtyChg)+'%':'–'}</td>
+        </tr>`;
+      }).join('');
+
+    return `
+    <table width="100%" style="border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:16px;font-family:'Helvetica Neue',Arial,sans-serif">
+      <!-- Brand header -->
+      <tr>
+        <td colspan="9" style="background:${bc};padding:10px 14px">
+          <table width="100%" style="border-collapse:collapse">
+            <tr>
+              <td style="color:#fff;font-size:13px;font-weight:800">${brand}</td>
+              <td style="text-align:right;white-space:nowrap">
+                <span style="color:#fff;font-size:15px;font-weight:800">${fmtNr(aprNr)}</span>
+                <span style="color:rgba(255,255,255,.65);font-size:10px;margin-left:6px">NR MTD</span>
+                ${nrChg!==null?`<span style="color:#fff;font-size:11px;font-weight:700;margin-left:8px">${arw(nrChg)}${Math.abs(nrChg)}%</span>`:''}
+                <span style="background:rgba(0,0,0,.25);color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;margin-left:10px">${nrAch!==null?nrAch+'%':'–'} ach</span>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <!-- Achievement bar (table-based, works in all email clients) -->
+      <tr>
+        <td colspan="9" style="padding:7px 14px 9px;background:#fff;border-bottom:1px solid #edf2f7">
+          <table width="100%" style="border-collapse:collapse;margin-bottom:3px">
+            <tr>
+              <td style="font-size:9px;color:#a0aec0">0%</td>
+              <td style="text-align:center;font-size:9px;font-weight:700;color:${colAch(nrAch)}">${nrAch!==null?nrAch+'%':'–'} of ${fmtNr(tgtNr)} target</td>
+              <td style="text-align:right;font-size:9px;color:#a0aec0">100%</td>
+            </tr>
+          </table>
+          <table width="100%" style="border-collapse:collapse;height:5px;border-radius:3px;overflow:hidden">
+            <tr>
+              <td width="${nrAchBar}%" style="height:5px;background:${colAch(nrAch)};border-radius:3px 0 0 3px"></td>
+              <td style="height:5px;background:#edf2f7"></td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <!-- Column headers -->
+      <tr>${THL('Metric')}${THL('')}${TH(pMon+' Full')}${TH('Prior Period')}${TH(cMon+' MTD')}${TH('Forecast','#90cdf4')}${TH('Target','#fbd38d')}${TH('Achievement')}${TH('Growth')}</tr>
+      <!-- NR row -->
+      <tr style="border-bottom:1px solid #f0f4f8">
+        <td style="padding:9px 10px;font-size:10px;font-weight:800;color:#718096;text-transform:uppercase;letter-spacing:.4px" colspan="2">Net Rev</td>
+        <td style="padding:9px 10px;text-align:right;font-size:12px;color:#4a5568">${fmtNr(marNr)}</td>
+        <td style="padding:9px 10px;text-align:right;font-size:12px;color:#4a5568">${fmtNr(lmtdNr)}</td>
+        <td style="padding:9px 10px;text-align:right;font-size:14px;font-weight:800;color:#1a202c">${fmtNr(aprNr)}</td>
+        <td style="padding:9px 10px;text-align:right;font-size:12px;font-weight:700;color:#2b6cb0">${projNr?fmtNr(projNr):'–'}</td>
+        <td style="padding:9px 10px;text-align:right;font-size:12px;color:#975a16">${fmtNr(tgtNr)}</td>
+        <td style="padding:9px 10px;text-align:right;font-size:13px;font-weight:800;color:${colAch(nrAch)}">${nrAch!==null?nrAch+'%':'–'}</td>
+        <td style="padding:9px 10px;text-align:right;font-size:12px;font-weight:700;color:${colChg(nrChg)}">${nrChg!==null?arw(nrChg)+Math.abs(nrChg)+'%':'–'}</td>
+      </tr>
+      <!-- Units row -->
+      <tr style="border-bottom:2px solid #e2e8f0">
+        <td style="padding:9px 10px;font-size:10px;font-weight:800;color:#718096;text-transform:uppercase;letter-spacing:.4px" colspan="2">Units</td>
+        <td style="padding:9px 10px;text-align:right;font-size:12px;color:#4a5568">${fmtQty(marQty)}</td>
+        <td style="padding:9px 10px;text-align:right;font-size:12px;color:#4a5568">${fmtQty(lmtdQty)}</td>
+        <td style="padding:9px 10px;text-align:right;font-size:14px;font-weight:800;color:#1a202c">${fmtQty(aprQty)}</td>
+        <td style="padding:9px 10px;text-align:right;font-size:12px;font-weight:700;color:#2b6cb0">${projQty?fmtQty(projQty):'–'}</td>
+        <td style="padding:9px 10px;text-align:right;font-size:12px;color:#975a16">${fmtQty(tgtQty)}</td>
+        <td style="padding:9px 10px;text-align:right;font-size:13px;font-weight:800;color:${colAch(qtyAch)}">${qtyAch!==null?qtyAch+'%':'–'}</td>
+        <td style="padding:9px 10px;text-align:right;font-size:12px;font-weight:700;color:${colChg(qtyChg)}">${qtyChg!==null?arw(qtyChg)+Math.abs(qtyChg)+'%':'–'}</td>
+      </tr>
+      <!-- Category breakdown -->
+      <tr><td colspan="9" style="padding:5px 10px;font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.6px;background:#fafbfc;border-bottom:1px solid #edf2f7">Category Breakdown</td></tr>
+      ${catRows}
+    </table>`;
+  }
+
+  // ── 7-day section (unchanged logic, cleaner render) ──────────────
+  function make7DaySection() {
+    const sd = DATA.seven_day, meta = DATA.meta;
+    if (!sd) return '';
+    const l7Label = meta.l7_start && meta.l7_end ? `${meta.l7_start}–${meta.l7_end}` : 'Last 7 Days';
+    const p7Label = meta.p7_start && meta.p7_end ? `${meta.p7_start}–${meta.p7_end}` : 'Prev 7 Days';
+    const BRC = {'Be Bodywise':'#ebf8ff','Little Joys':'#f0fff4','Man Matters':'#fffaf0'};
+    const BRB = {'Be Bodywise':'#bee3f8','Little Joys':'#9ae6b4','Man Matters':'#fbd38d'};
+    let rows = '';
+    brands.forEach(brand => {
+      const d = sd[brand]; if (!d) return;
+      const bl7=d.l7?.qty||0, bp7=d.p7?.qty||0;
+      const bPct = fmtPct(bl7, bp7);
+      rows += `<tr style="background:${BRC[brand]};border-bottom:2px solid ${BRB[brand]}">
+        <td style="padding:7px 10px;font-weight:800;color:#1a202c;font-size:12px">${brand}</td>
+        <td style="padding:7px 10px;text-align:right;font-size:12px">${fmtQty(bp7)}</td>
+        <td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:700">${fmtQty(bl7)}</td>
+        <td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:800;color:${colChg(bPct)}">${bPct!==null?arw(bPct)+Math.abs(bPct)+'%':'–'}</td>
+      </tr>`;
+      Object.entries(d.categories||{})
+        .sort(([,a],[,b])=>(b.l7?.qty||0)-(a.l7?.qty||0))
+        .forEach(([cat,cd]) => {
+          const cl7=cd.l7?.qty||0, cp7=cd.p7?.qty||0;
+          const cPct = fmtPct(cl7, cp7);
+          rows += `<tr style="background:#fff;border-bottom:1px solid #edf2f7">
+            <td style="padding:5px 10px 5px 20px;color:#4a5568;font-size:11px;font-weight:600">${cat}</td>
+            <td style="padding:5px 10px;text-align:right;font-size:11px;color:#718096">${fmtQty(cp7)}</td>
+            <td style="padding:5px 10px;text-align:right;font-size:11px;font-weight:600">${fmtQty(cl7)}</td>
+            <td style="padding:5px 10px;text-align:right;font-size:11px;font-weight:700;color:${colChg(cPct)}">${cPct!==null?arw(cPct)+Math.abs(cPct)+'%':'–'}</td>
+          </tr>`;
+        });
+    });
+    return `
+    <table width="100%" style="border-collapse:collapse;font-size:12px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:16px">
+      <thead><tr style="background:#2d3748">
+        <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.4px">Brand / Category</th>
+        <th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.4px">Prev 7D<br><span style="color:#718096;font-weight:400">${p7Label}</span></th>
+        <th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.4px">Last 7D<br><span style="color:#a0aec0;font-weight:400">${l7Label}</span></th>
+        <th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.4px">WoW Change</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }
+
+  // ── Totals for summary bar ────────────────────────────────────────
+  const totAprNr  = brands.reduce((s,b)=>s+(gV(h[b]?.apr,'net_rev')||0),0);
+  const totLmtdNr = brands.reduce((s,b)=>s+(gLmtd(h[b],'net_rev')||0),0);
+  const totAprQty = brands.reduce((s,b)=>s+(gV(h[b]?.apr,'qty')||0),0);
+  const totProjNr = brands.reduce((s,b)=>s+(gProj(h[b],'net_rev')||0),0);
+  const totTgtNr  = brands.reduce((s,b)=>s+(gV(h[b]?.tgt,'net_rev')||0),0);
+  const totChgNr  = fmtPct(totAprNr, totLmtdNr);
+  const totAchNr  = fmtAch(totProjNr||totAprNr, totTgtNr);
+
+  const SB = (label, val, sub, subCol) =>
+    `<td style="padding:10px 14px;text-align:center;border-right:1px solid #e2e8f0">
+      <div style="font-size:9px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.5px">${label}</div>
+      <div style="font-size:18px;font-weight:800;color:#1a202c;margin-top:3px">${val}</div>
+      <div style="font-size:10px;font-weight:700;color:${subCol||'#718096'};margin-top:2px">${sub}</div>
+    </td>`;
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:'Helvetica Neue',Arial,sans-serif;background:#edf2f7;margin:0;padding:20px 0">
+<a href="${DASHBOARD_URL}" style="text-decoration:none;color:inherit;display:block">
+<table width="620" style="margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1);border-collapse:collapse">
+
+  <!-- HEADER -->
+  <tr><td style="background:linear-gradient(135deg,#1a365d,#2b6cb0);padding:18px 22px">
+    <table width="100%" style="border-collapse:collapse">
+      <tr>
+        <td style="color:#fff;font-size:16px;font-weight:800">📦 Blinkit Daily</td>
+        <td style="text-align:right;background:rgba(255,255,255,.15);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;color:#bee3f8;white-space:nowrap">MOSAIC WELLNESS</td>
+      </tr>
+    </table>
+    <div style="color:#90cdf4;font-size:11px;margin-top:6px"><b>${asOf}</b> &nbsp;·&nbsp; ${cMon} MTD (${mtdDays} days) &nbsp;·&nbsp; tap to open full dashboard →</div>
+  </td></tr>
+
+  <!-- SUMMARY BAR -->
+  <tr><td style="background:#f7fafc;border-bottom:2px solid #e2e8f0">
+    <table width="100%" style="border-collapse:collapse">
+      <tr>
+        ${SB('MTD Net Revenue', fmtNr(totAprNr), totChgNr!==null?arw(totChgNr)+Math.abs(totChgNr)+'% vs prior period':'–', colChg(totChgNr))}
+        ${SB('Target Achievement', totAchNr!==null?totAchNr+'%':'–', 'of '+fmtNr(totTgtNr)+' target', colAch(totAchNr))}
+        <td style="padding:10px 14px;text-align:center">
+          <div style="font-size:9px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.5px">MTD Units</div>
+          <div style="font-size:18px;font-weight:800;color:#1a202c;margin-top:3px">${fmtQty(totAprQty)}</div>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <!-- BRAND BLOCKS -->
+  <tr><td style="padding:16px 18px 4px">
+    ${brands.map(b => makeBrandBlock(b)).join('')}
+  </td></tr>
+
+  <!-- 7-DAY SECTION -->
+  <tr><td style="padding:0 18px 16px">
+    <div style="font-size:10px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.7px;padding:10px 0 8px;border-top:1px solid #edf2f7">📈 Units — Last 7 Days vs Previous 7 Days</div>
+    ${make7DaySection()}
+  </td></tr>
+
+  <!-- FOOTER -->
+  <tr><td style="background:#f7fafc;padding:12px 20px;text-align:center;font-size:10px;color:#a0aec0;border-top:1px solid #e2e8f0">
+    Mosaic Wellness · Blinkit · ${new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})}
+  </td></tr>
+
+</table></a></body></html>`;
 }
 
 function renderEmailTab() {

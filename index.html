@@ -237,21 +237,12 @@ iframe#email-preview{width:100%;border:none;height:520px;display:block}
   <div class="section-hdr">Brand Performance — Yesterday NR</div>
   <div class="cards" id="pulse-brand-cards"></div>
 
-  <!-- Spike / Drop Callouts -->
-  <div class="section-hdr">Movement Callouts <span style="font-weight:400;font-size:9px;color:#6e7681">ranked by Impact Score = |WoW%| × √base · filters out small-base noise</span></div>
-  <div class="callout-grid">
-    <div class="callout-box">
-      <div style="font-size:10px;font-weight:700;color:#3fb950;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">🚀 Top 3 Spikes</div>
-      <div id="pulse-gainers"></div>
-    </div>
-    <div class="callout-box">
-      <div style="font-size:10px;font-weight:700;color:#f85149;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">📉 Top 3 Drops</div>
-      <div id="pulse-droppers"></div>
-    </div>
-  </div>
+  <!-- Per-Brand Spikes & Drops -->
+  <div class="section-hdr">Spikes &amp; Drops — Top 3 Products per Brand <span style="font-weight:400;font-size:9px;color:#6e7681">ranked by Impact Score = |WoW%| × √base</span></div>
+  <div id="pulse-brand-callouts"></div>
 
   <!-- Movement Table — flat product list -->
-  <div class="section-hdr">Product Movement <span style="font-weight:400;font-size:9px;color:#6e7681">click column headers to sort</span></div>
+  <div class="section-hdr">Product Movement</div>
   <div class="pulse-filters">
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
       <span class="filter-label">Metric</span>
@@ -265,8 +256,16 @@ iframe#email-preview{width:100%;border:none;height:520px;display:block}
       <span class="filter-label" style="margin-left:8px">Category</span>
       <div id="pulse-cat-filters" style="display:inline-flex;gap:4px;flex-wrap:wrap"></div>
     </div>
-    <div style="margin-top:6px;font-size:10px;color:#6e7681">
-      <span style="color:#3fb950">Yesterday = single-day actual</span> · Target = DRR benchmark · <span id="pulse-row-count"></span>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px">
+      <span class="filter-label">Sort By</span>
+      <div id="pulse-sort-btns" style="display:inline-flex;gap:4px;flex-wrap:wrap">
+        <button class="metric-btn active" data-col="impact" onclick="setPulseSort('impact',event)">⚡ Impact</button>
+        <button class="metric-btn" data-col="wow" onclick="setPulseSort('wow',event)">WoW %</button>
+        <button class="metric-btn" data-col="avg4" onclick="setPulseSort('avg4',event)">4W Avg %</button>
+        <button class="metric-btn" data-col="yd" onclick="setPulseSort('yd',event)">Yesterday</button>
+        <button class="metric-btn" data-col="dod" onclick="setPulseSort('dod',event)">DoD %</button>
+      </div>
+      <span style="font-size:10px;color:#6e7681;margin-left:6px" id="pulse-row-count"></span>
     </div>
   </div>
   <div class="tbl-wrap">
@@ -274,12 +273,12 @@ iframe#email-preview{width:100%;border:none;height:520px;display:block}
       <th style="text-align:left;padding-left:14px;cursor:pointer;min-width:200px" onclick="sortPulse('name')">Product <span class="sort-icon" id="ps-name"></span></th>
       <th style="text-align:left;cursor:pointer" onclick="sortPulse('brand')">Brand <span class="sort-icon" id="ps-brand"></span></th>
       <th style="text-align:left;cursor:pointer" onclick="sortPulse('cat')">Category <span class="sort-icon" id="ps-cat"></span></th>
-      <th style="cursor:pointer" onclick="sortPulse('yd')">Yesterday <span class="sort-icon" id="ps-yd">▼</span></th>
+      <th style="cursor:pointer" onclick="sortPulse('yd')">Yesterday <span class="sort-icon" id="ps-yd"></span></th>
       <th style="cursor:pointer" onclick="sortPulse('dod')">DoD % <span class="sort-icon" id="ps-dod"></span></th>
       <th style="cursor:pointer" onclick="sortPulse('wow')">WoW % <span class="sort-icon" id="ps-wow"></span></th>
       <th style="cursor:pointer" onclick="sortPulse('avg4')">4W Avg % <span class="sort-icon" id="ps-avg4"></span></th>
       <th style="cursor:pointer" onclick="sortPulse('tgt')">vs Target <span class="sort-icon" id="ps-tgt"></span></th>
-      <th style="cursor:pointer" onclick="sortPulse('impact')">Impact <span class="sort-icon" id="ps-impact"></span></th>
+      <th style="cursor:pointer" onclick="sortPulse('impact')">Impact <span class="sort-icon" id="ps-impact">▼</span></th>
     </tr></thead>
     <tbody id="pulse-body"></tbody></table>
   </div>
@@ -921,7 +920,7 @@ function createEmailDraft() {
 let PULSE_METRIC   = 'net_rev';
 let PULSE_F_BRANDS = new Set();   // empty = show all
 let PULSE_F_CATS   = new Set();   // empty = show all
-let PULSE_SORT_COL = 'yd';
+let PULSE_SORT_COL = 'impact';
 let PULSE_SORT_DIR = -1;          // -1 = desc, 1 = asc
 
 // Format a single-day absolute value
@@ -1000,50 +999,53 @@ function renderDailyPulse() {
     });
   }
 
-  // ── Callouts — Brand-level, Impact Score = |WoW%| × √(lw_NR) ────
-  const gEl = document.getElementById('pulse-gainers');
-  const dEl = document.getElementById('pulse-droppers');
-  if (gEl && h) {
-    const BC = {'Be Bodywise':'#58a6ff','Little Joys':'#3fb950','Man Matters':'#d29922'};
-    const brandRows = ['Be Bodywise','Little Joys','Man Matters']
-      .map(brand => {
-        const bdp = h[brand]?.dp;
-        if (!bdp) return null;
-        const yd  = bdp.yd.net_rev;
-        const lw  = bdp.lw.net_rev;
-        if (yd <= 0 && lw <= 0) return null;
-        const wow    = lw > 0 ? (yd - lw) / lw * 100 : (yd > 0 ? 100 : 0);
-        const impact = Math.abs(wow) * Math.sqrt(Math.max(lw, 1));
-        const delta  = yd - lw;
-        return { brand, yd, lw, _wow: wow, _impact: impact, _delta: delta };
-      })
-      .filter(Boolean);
+  // ── Per-brand product spikes & drops ─────────────────────────────
+  const calloutsEl = document.getElementById('pulse-brand-callouts');
+  if (calloutsEl && dp.products) {
+    calloutsEl.innerHTML = ['Be Bodywise','Little Joys','Man Matters'].map(brand => {
+      const bColor = BCOLOR[brand] || '#8b949e';
+      const scored = dp.products
+        .filter(p => p.brand === brand && p.lw?.net_rev > 0)
+        .map(p => {
+          const yd     = p.yd?.net_rev || 0;
+          const lw     = p.lw.net_rev;
+          const wow    = (yd - lw) / lw * 100;
+          const impact = Math.abs(wow) * Math.sqrt(Math.max(lw, 1));
+          const delta  = yd - lw;
+          return {...p, _yd: yd, _lw: lw, _wow: wow, _impact: impact, _delta: delta};
+        });
+      const spikes = scored.filter(p => p._wow > 0).sort((a,b) => b._impact - a._impact).slice(0,3);
+      const drops  = scored.filter(p => p._wow < 0).sort((a,b) => b._impact - a._impact).slice(0,3);
 
-    const gainers  = brandRows.filter(b => b._wow >= 0).sort((a,b) => b._impact - a._impact);
-    const droppers = brandRows.filter(b => b._wow <  0).sort((a,b) => b._impact - a._impact);
+      const mkRow = (p, up) => {
+        const color = up ? '#3fb950' : '#f85149';
+        const dL = Math.abs(p._delta) >= 100000
+          ? (up?'+':'−') + '₹' + (Math.abs(p._delta)/1e5).toFixed(1) + 'L'
+          : (up?'+':'−') + '₹' + (Math.abs(p._delta)/1000).toFixed(0) + 'K';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:5px;margin-bottom:4px;background:${up?'#0f2a1a':'#2a0f0f'}">
+          <div style="font-size:11px;color:#e2e8f0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.name||p.iid}">${p.name||p.iid}</div>
+          <div style="text-align:right;padding-left:10px;flex-shrink:0;white-space:nowrap">
+            <span style="color:${color};font-weight:800;font-size:12px">${p._wow>=0?'↑':'↓'}${Math.abs(p._wow).toFixed(1)}%</span>
+            <span style="color:#6e7681;font-size:10px;margin-left:6px">${dL}</span>
+          </div>
+        </div>`;
+      };
+      const side = (items, up, label, icon) => `
+        <div>
+          <div style="font-size:9px;font-weight:700;color:${up?'#3fb950':'#f85149'};text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">${icon} ${label}</div>
+          ${items.length ? items.map(p=>mkRow(p,up)).join('') : '<div style="color:#6e7681;font-size:11px;padding:6px 0">–</div>'}
+        </div>`;
 
-    const mkItem = (b, up) => {
-      const color  = up ? '#3fb950' : '#f85149';
-      const bColor = BC[b.brand] || '#8b949e';
-      const ydL    = b.yd >= 100000
-        ? '₹' + (b.yd/1e5).toFixed(2) + 'L'
-        : '₹' + (b.yd/1000).toFixed(1) + 'K';
-      const deltaL = Math.abs(b._delta) >= 100000
-        ? (up?'+':'−') + '₹' + (Math.abs(b._delta)/1e5).toFixed(1) + 'L'
-        : (up?'+':'−') + '₹' + (Math.abs(b._delta)/1000).toFixed(0) + 'K';
-      return `<div class="callout-item ${up?'callout-item-gain':'callout-item-drop'}">
-        <div style="flex:1;min-width:0">
-          <div class="ci-name" style="color:${bColor}">${b.brand}</div>
-          <div class="ci-nr" style="margin-top:4px;color:${color};font-weight:700">${deltaL} vs last week</div>
+      return `<div style="background:#161b27;border:1px solid #21262d;border-radius:10px;padding:14px 16px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:800;color:${bColor};margin-bottom:12px">
+          ${brand} <span style="font-size:9px;font-weight:400;color:#6e7681">WoW product movement</span>
         </div>
-        <div style="text-align:right;padding-left:10px;flex-shrink:0">
-          <div class="ci-pct" style="color:${color}">${b._wow>=0?'↑':'↓'} ${Math.abs(b._wow).toFixed(1)}%</div>
-          <div class="ci-nr">yday ${ydL}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          ${side(spikes,true,'Top 3 Spikes','🚀')}
+          ${side(drops,false,'Top 3 Drops','📉')}
         </div>
       </div>`;
-    };
-    gEl.innerHTML = gainers.length  ? gainers.map(b=>mkItem(b,true)).join('')  : '<div style="color:#6e7681;font-size:11px;padding:8px">No data</div>';
-    dEl.innerHTML = droppers.length ? droppers.map(b=>mkItem(b,false)).join('') : '<div style="color:#6e7681;font-size:11px;padding:8px">No data</div>';
+    }).join('');
   }
 
   // Render filter pills + flat table
@@ -1161,9 +1163,16 @@ function setPulseMetric(m,evt) {
   evt.target.classList.add('active');
   buildPulseRows(m);
 }
+function setPulseSort(col, evt) {
+  PULSE_SORT_COL = col;
+  PULSE_SORT_DIR = ['name','brand','cat'].includes(col) ? 1 : -1;
+  document.querySelectorAll('#pulse-sort-btns .metric-btn').forEach(b => b.classList.toggle('active', b.dataset.col === col));
+  buildPulseRows(PULSE_METRIC);
+}
 function sortPulse(col) {
   PULSE_SORT_DIR = PULSE_SORT_COL===col ? PULSE_SORT_DIR*-1 : (['name','brand','cat'].includes(col) ? 1 : -1);
   PULSE_SORT_COL = col;
+  document.querySelectorAll('#pulse-sort-btns .metric-btn').forEach(b => b.classList.toggle('active', b.dataset.col === col));
   buildPulseRows(PULSE_METRIC);
 }
 

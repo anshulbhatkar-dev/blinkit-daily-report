@@ -700,10 +700,10 @@ function buildEmailHTML() {
           <td style="padding:6px 10px;text-align:right">${pillChg(cNrChg)}</td>
         </tr>
         <tr style="border-bottom:2px solid #edf2f7">
-          <td style="padding:3px 10px 7px 20px;font-size:11px;color:#a0aec0;font-weight:600" colspan="2">↳ DRR Units</td>
-          <td style="padding:3px 10px 7px;text-align:right;font-size:11px;color:#a0aec0">${fmtQty(gV(cd.mar,'qty'))}</td>
-          <td style="padding:3px 10px 7px;text-align:right;font-size:11px;color:#a0aec0">${fmtQty(cLmtdQty)}</td>
-          <td style="padding:3px 10px 7px;text-align:right;font-size:12px;font-weight:700;color:#4a5568">${fmtQty(cAprQty)}</td>
+          <td style="padding:3px 10px 7px 20px;font-size:11px;color:#2d3748;font-weight:700" colspan="2">↳ DRR Units</td>
+          <td style="padding:3px 10px 7px;text-align:right;font-size:11px;color:#2d3748">${fmtQty(gV(cd.mar,'qty'))}</td>
+          <td style="padding:3px 10px 7px;text-align:right;font-size:11px;color:#2d3748">${fmtQty(cLmtdQty)}</td>
+          <td style="padding:3px 10px 7px;text-align:right;font-size:12px;font-weight:800;color:#2d3748">${fmtQty(cAprQty)}</td>
           <td style="padding:3px 10px 7px;text-align:right;font-size:11px;color:#2b6cb0">${cProjQty?fmtQty(cProjQty):'–'}</td>
           <td style="padding:3px 10px 7px;text-align:right;font-size:11px;color:#975a16">${fmtQty(cTgtQty)}</td>
           <td style="padding:3px 10px 7px;text-align:right">${pillAch(cQtyAch)}</td>
@@ -762,12 +762,12 @@ function buildEmailHTML() {
       </tr>
       <!-- Units row -->
       <tr style="border-bottom:2px solid #e2e8f0">
-        <td style="padding:10px 10px;font-size:11px;font-weight:800;color:#4a5568;letter-spacing:.2px" colspan="2">DRR Units</td>
-        <td style="padding:10px 10px;text-align:right;font-size:13px;color:#4a5568">${fmtQty(marQty)}</td>
-        <td style="padding:10px 10px;text-align:right;font-size:13px;color:#4a5568">${fmtQty(lmtdQty)}</td>
-        <td style="padding:10px 10px;text-align:right;font-size:16px;font-weight:800;color:#1a202c">${fmtQty(aprQty)}</td>
+        <td style="padding:10px 10px;font-size:11px;font-weight:800;color:#2d3748;letter-spacing:.2px" colspan="2">DRR Units</td>
+        <td style="padding:10px 10px;text-align:right;font-size:13px;color:#2d3748">${fmtQty(marQty)}</td>
+        <td style="padding:10px 10px;text-align:right;font-size:13px;color:#2d3748">${fmtQty(lmtdQty)}</td>
+        <td style="padding:10px 10px;text-align:right;font-size:16px;font-weight:800;color:#2d3748">${fmtQty(aprQty)}</td>
         <td style="padding:10px 10px;text-align:right;font-size:13px;font-weight:700;color:#2b6cb0">${projQty?fmtQty(projQty):'–'}</td>
-        <td style="padding:10px 10px;text-align:right;font-size:13px;color:#975a16">${fmtQty(tgtQty)}</td>
+        <td style="padding:10px 10px;text-align:right;font-size:13px;font-weight:600;color:#975a16">${fmtQty(tgtQty)}</td>
         <td style="padding:10px 10px;text-align:right">${pillAch(qtyAch)}</td>
         <td style="padding:10px 10px;text-align:right">${pillChg(qtyChg)}</td>
       </tr>
@@ -857,7 +857,7 @@ function buildEmailHTML() {
   <tr><td style="background:#f7fafc;border-bottom:2px solid #e2e8f0">
     <table width="100%" style="border-collapse:collapse">
       <tr>
-        ${SB('MTD Net Revenue', fmtNr(totAprNr), pillChg(totChgNr))}
+        ${SB('DRR Net Revenue', fmtNr(totAprNr), pillChg(totChgNr))}
         ${SB('Target Achievement', totAchNr!==null?totAchNr+'%':'–', pillAch(totAchNr))}
         <td style="padding:12px 14px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.5px">MTD Units</div>

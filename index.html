@@ -1370,16 +1370,9 @@ function refreshData() {
   const sys  = new Date();
   const sysY = sys.getFullYear();
 
-  // ── New Base (GID 1168753412) ─────────────────────────────────────────────────
-  const nbCols  = 'A,B,C,E,F,I,K,P,Q,U,Z';  // added B so we can see channel values in console
-  // Try exact match first; if 0 rows, a second fallback (no channel filter) will run
-  const nbWhere = `lower(B) contains 'blinkit' and year(A)=${sysY}`;
-  const nbTql   = encodeURIComponent(`select ${nbCols} where ${nbWhere} order by A`);
-
-  // ── AOP Target (GID 629606959, headers=3) ─────────────────────────────────────
-  const tgtTql  = encodeURIComponent(`select A,C,G,J,K,L where lower(C) contains 'blinkit'`);
-
-  // ── CSV fetch URLs ──────────────────────────────────────────────────────────────
+  // ── CSV fetch URLs (all data via CSV export — works with Google Workspace auth) ──
+  const nbCsvUrl     = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=1168753412&range=A:Z`;
+  const tgtCsvUrl    = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=629606959`;
   const skuCsvUrl    = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=1200688139`;
   const fillCsvUrl   = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=561583355`;
   const searchCsvUrl = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=1473078428`;

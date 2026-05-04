@@ -1528,26 +1528,108 @@ function refreshData() {
     return result;
   }
 
-  const BASE   = `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json`;
-  const nbUrl  = `${BASE}&gid=1168753412&range=A:Z&tq=${nbTql}`;
-  const tgtUrl = `${BASE}&gid=629606959&range=A:L&headers=3&tq=${tgtTql}`;
+
+  // ── NewBase CSV → GViz-compatible format ────────────────────────────────────────
+  // Sheet columns (0-indexed): A=0(date), B=1(channel), C=2(item_id),
+  //   D=3(?), E=4(MRP_GMV/gmv), F=5(qty_sold), G=6,H=7,I=8(brand),J=9,K=10(category),
+  //   L..O=11-14, P=15(product_name), Q=16(sku), R..T=17-19, U=20(subcat), V..Y=21-24, Z=25(net_rev)
+  // Returns rows in COL order: {date,channel,iid,gmv,qty,brand,cat,prod,sku,sub,nr} (11 cols)
+  function parseNewBaseCsv(text) {
+    const lines = text.replace(/
+/g,'').split('
+');
+    if (lines.length < 2) { console.warn('NewBase CSV: empty'); return {table:{rows:[]}}; }
+
+    // Detect column positions from header row
+    const hdr = splitCsvRow(lines[0]).map(x => x.replace(/^"|"$/g,'').trim().toLowerCase());
+    const fc = (...terms) => { for (const t of terms) { const i=hdr.findIndex(h=>h.includes(t)); if(i>=0) return i; } return -1; };
+    const iDate  = fc('date') >= 0 ? fc('date') : 0;
+    const iChan  = fc('channel','platform') >= 0 ? fc('channel','platform') : 1;
+    const iIid   = fc('item id','item_id','itemid','blinkit id','sku id') >= 0 ? fc('item id','item_id','itemid','blinkit id') : 2;
+    const iGmv   = fc('mrp_gmv','gmv','gross merch','mrp') >= 0 ? fc('mrp_gmv','gmv','gross merch','mrp') : 4;
+    const iQty   = fc('qty sold','quantity sold','units sold','qty_sold') >= 0 ? fc('qty sold','quantity sold','units sold','qty_sold') : 5;
+    const iBrand = fc('brand') >= 0 ? fc('brand') : 8;
+    const iCat   = fc('update cat','updatecat','category') >= 0 ? fc('update cat','updatecat','category') : 10;
+    const iProd  = fc('naming','product name','name') >= 0 ? fc('naming','product name') : 15;
+    const iSku   = fc('uniware','sku') >= 0 ? fc('uniware','sku') : 16;
+    const iSub   = fc('subcat','sub cat','sub-cat') >= 0 ? fc('subcat','sub cat','sub-cat') : 20;
+    const iNr    = fc('net rev','net_rev','netrev','net revenue') >= 0 ? fc('net rev','net_rev','netrev','net revenue') : 25;
+    console.log('NewBase cols detected:', {iDate,iChan,iIid,iGmv,iQty,iBrand,iCat,iProd,iSub,iNr});
+
+    const sysY = new Date().getFullYear();
+    const rows = [];
+    let channelsSeen = new Set();
+    for (let i = 1; i < lines.length; i++) {
+      const f = splitCsvRow(lines[i]);
+      if (!f || f.length < 6) continue;
+      const g  = idx => (idx>=0&&f[idx])?f[idx].replace(/^"|"$/g,'').trim():'';
+      const n  = idx => { const s=g(idx); return parseFloat(s.replace(/,/g,''))||0; };
+      const ch = g(iChan);
+      if (ch) channelsSeen.add(ch);
+      if (!ch.toLowerCase().includes('blinkit')) continue;
+      const ds = g(iDate);
+      let dateObj = null;
+      if (ds.includes('-') || ds.includes('/')) { dateObj = new Date(ds.replace(/\//g,'-')); }
+      else if (ds) { dateObj = new Date(ds); }
+      if (!dateObj || isNaN(dateObj.getTime())) continue;
+      if (dateObj.getFullYear() !== sysY) continue;
+      rows.push({c:[
+        {v:`Date(${dateObj.getFullYear()},${dateObj.getMonth()},${dateObj.getDate()})`},
+        {v:ch},
+        {v:g(iIid)},
+        {v:n(iGmv)},
+        {v:n(iQty)},
+        {v:g(iBrand)},
+        {v:g(iCat)},
+        {v:g(iProd)},
+        {v:g(iSku)},
+        {v:g(iSub)},
+        {v:n(iNr)},
+      ]});
+    }
+    console.log(`NewBase CSV: ${rows.length} Blinkit rows for ${sysY}. All channels: ${[...channelsSeen].join(', ')}`);
+    return {table:{rows}};
+  }
+
+  // ── AOP Target CSV → GViz-compatible format ──────────────────────────────────────
+  // Sheet has 3 header rows (headers=3). Data starts row 4.
+  // Select A,C,G,J,K,L where C='Blinkit' → COL: {sku:0,channel:1,iid:2,unit_tgt:3,gmv_tgt:4,nr_tgt:5}
+  function parseTargetCsv(text) {
+    const lines = text.replace(/
+/g,'').split('
+');
+    const rows = [];
+    // Skip first 3 header rows; scan remaining for Blinkit rows
+    // Col indices: A=0(child_SKU), C=2(channel), G=6(item_id), J=9(unit_tgt), K=10(gmv_tgt), L=11(nr_tgt)
+    // Try to auto-detect by scanning for a row containing 'blinkit' or header patterns
+    let startRow = 3; // default skip 3 headers
+    // Scan first 10 rows to confirm header count
+    for (let i=0; i<Math.min(10,lines.length); i++) {
+      const f = splitCsvRow(lines[i]);
+      const joined = f.map(x=>x.replace(/^"|"$/g,'').trim().toLowerCase()).join('|');
+      if (joined.includes('unit') && (joined.includes('target') || joined.includes('tgt'))) {
+        startRow = i+1; break;
+      }
+    }
+    for (let i = startRow; i < lines.length; i++) {
+      const f = splitCsvRow(lines[i]);
+      if (!f || f.length < 10) continue;
+      const g = idx => (idx<f.length&&f[idx])?f[idx].replace(/^"|"$/g,'').trim():'';
+      const n = idx => { const s=g(idx); return parseFloat(s.replace(/,/g,''))||0; };
+      const ch = g(2);
+      if (!ch.toLowerCase().includes('blinkit')) continue;
+      rows.push({c:[{v:g(0)},{v:ch},{v:g(6)},{v:n(9)},{v:n(10)},{v:n(11)}]});
+    }
+    console.log(`Target CSV: ${rows.length} Blinkit rows`);
+    return {table:{rows}};
+  }
 
   Promise.all([
-    gvizJsonp(nbUrl),
-    gvizJsonp(tgtUrl),
+    fetch(nbCsvUrl).then(r=>{ if(!r.ok) throw new Error('NewBase CSV '+r.status); return r.text(); }).then(parseNewBaseCsv).catch(err=>{console.error('NewBase CSV failed:',err.message);return {table:{rows:[]}};}),
+    fetch(tgtCsvUrl).then(r=>{ if(!r.ok) throw new Error('Target CSV '+r.status); return r.text(); }).then(parseTargetCsv).catch(err=>{console.error('Target CSV failed:',err.message);return {table:{rows:[]}};}),
     fetch(skuCsvUrl).then(r=>{ if(!r.ok) throw new Error('CSV '+r.status); return r.text(); })
                     .then(parseSkuCsv)
-                    .catch(err => {
-                      console.warn('SKU CSV fetch failed, falling back to GViz JSONP:', err.message);
-                      return gvizJsonp(`${BASE}&gid=1200688139&range=A:AH&headers=6&tq=${encodeURIComponent("select A,D,AH where lower(A) contains 'blinkit'")}`).then(j => {
-                        const map = {};
-                        j.table?.rows?.forEach(r => {
-                          const raw = r.c?.[1]?.v; const proj = Number(r.c?.[2]?.v||0);
-                          if (raw && proj>0) { const id=String(Math.round(Number(String(raw).replace(/[^0-9.]/g,'')))); if(id&&id!=='0') map[id]=proj; }
-                        });
-                        return map;
-                      });
-                    }),
+                    .catch(err => { console.warn('SKU CSV fetch failed:', err.message); return {}; }),
     fetch(fillCsvUrl).then(r=>{ if(!r.ok) throw new Error('Fill CSV '+r.status); return r.text(); })
                      .then(parseFillRateCsv)
                      .catch(err=>{ console.warn('Fill rate fetch failed:', err.message); return {}; }),
@@ -1575,7 +1657,7 @@ function refreshData() {
           document.querySelector('.main')?.prepend(eb);
         }
         eb.style.display = 'flex';
-        eb.innerHTML = `⚠️ <b>No sales data loaded</b> — GViz returned 0 rows. Channel values seen: <code style="background:#1a0808;padding:2px 6px;border-radius:3px">${[...channelsSeen].join(', ') || '(none)'}</code>. Open browser console for full diagnostics.`;
+        eb.innerHTML = `⚠️ <b>No sales data loaded</b> — NewBase CSV returned 0 rows. Open browser console (F12) for diagnostics — check for network errors on the CSV fetch.`;
       }
       if (tgtRows === 0) console.warn('aopTarget: 0 rows — check headers=3 or column refs');
       processAllData(nbJson, tgtJson, projByIdMap, fillRateData, searchData);
@@ -1630,9 +1712,8 @@ function processAllData(nbJson, tgtJson, projByIdMap, fillRateData, searchData) 
 
   // ── 1. Find latestDate from actual data ──────────────────────────
   // Log unique brand values actually present (first 20 rows) for diagnosis
-  const brandsSeen = new Set(); const channelsSeen = new Set();
-  nbJson.table.rows.slice(0,50).forEach(r => { brandsSeen.add(vs(r, COL.brand)); channelsSeen.add(vs(r, COL.channel)); });
-  console.log('Channels in newBase (first 50 rows):', [...channelsSeen]);
+  const brandsSeen = new Set();
+  nbJson.table.rows.slice(0,50).forEach(r => brandsSeen.add(vs(r, COL.brand)));
   console.log('Brands in newBase (first 50 rows):', [...brandsSeen]);
 
   let latestTs = 0;

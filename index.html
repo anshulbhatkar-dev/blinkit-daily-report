@@ -163,6 +163,7 @@ iframe#email-preview{width:100%;border:none;height:520px;display:block}
       <th class="tgt-col">Target DRR</th>
       <th>Tgt Ach</th>
       <th>MTD Growth</th>
+      <th style="color:#58a6ff">L10D Fill</th>
     </tr></thead>
     <tbody id="drill-body"></tbody></table>
   </div>
@@ -175,7 +176,7 @@ iframe#email-preview{width:100%;border:none;height:520px;display:block}
   <div class="tbl-wrap"><table><thead><tr>
     <th>Brand / Category / SubCat / Product</th>
     <th class="th-prev-drr">Mar DRR</th><th class="th-prev-lmtd">Mar LMTD</th><th class="th-curr-mtd">Apr MTD DRR</th>
-    <th class="proj-col">Proj DRR</th><th class="tgt-col">Target DRR</th><th>Tgt Ach</th><th>MTD Growth</th>
+    <th class="proj-col">Proj DRR</th><th class="tgt-col">Target DRR</th><th>Tgt Ach</th><th>MTD Growth</th><th style="color:#58a6ff">L10D Fill</th>
   </tr></thead><tbody id="units-body"></tbody></table></div>
 </div>
 
@@ -185,7 +186,7 @@ iframe#email-preview{width:100%;border:none;height:520px;display:block}
   <div class="tbl-wrap"><table><thead><tr>
     <th>Brand / Category / SubCat / Product</th>
     <th class="th-prev-drr">Mar DRR</th><th class="th-prev-lmtd">Mar LMTD</th><th class="th-curr-mtd">Apr MTD DRR</th>
-    <th class="proj-col">Proj DRR</th><th class="tgt-col">Target DRR</th><th>Tgt Ach</th><th>MTD Growth</th>
+    <th class="proj-col">Proj DRR</th><th class="tgt-col">Target DRR</th><th>Tgt Ach</th><th>MTD Growth</th><th style="color:#58a6ff">L10D Fill</th>
   </tr></thead><tbody id="gmv-body"></tbody></table></div>
 </div>
 
@@ -195,7 +196,7 @@ iframe#email-preview{width:100%;border:none;height:520px;display:block}
   <div class="tbl-wrap"><table><thead><tr>
     <th>Brand / Category / SubCat / Product</th>
     <th class="th-prev-drr">Mar DRR</th><th class="th-prev-lmtd">Mar LMTD</th><th class="th-curr-mtd">Apr MTD DRR</th>
-    <th class="proj-col">Proj DRR</th><th class="tgt-col">Target DRR</th><th>Tgt Ach</th><th>MTD Growth</th>
+    <th class="proj-col">Proj DRR</th><th class="tgt-col">Target DRR</th><th>Tgt Ach</th><th>MTD Growth</th><th style="color:#58a6ff">L10D Fill</th>
   </tr></thead><tbody id="rev-body"></tbody></table></div>
 </div>
 
@@ -279,6 +280,7 @@ iframe#email-preview{width:100%;border:none;height:520px;display:block}
       <th style="cursor:pointer" onclick="sortPulse('avg4')">4W Avg % <span class="sort-icon" id="ps-avg4"></span></th>
       <th style="cursor:pointer" onclick="sortPulse('tgt')">vs Target <span class="sort-icon" id="ps-tgt"></span></th>
       <th style="cursor:pointer" onclick="sortPulse('impact')">Impact <span class="sort-icon" id="ps-impact">▼</span></th>
+      <th style="color:#58a6ff">L10D Fill</th>
     </tr></thead>
     <tbody id="pulse-body"></tbody></table>
   </div>
@@ -410,6 +412,15 @@ function renderCards() {
 // ── DRILLDOWN TABLE ────────────────────────────────────────────────
 // TGT ACH logic: use Proj DRR if available, else fall back to Actual MTD DRR.
 // This ensures brands without SKU-level projections still show meaningful achievement %.
+// ── FILL RATE BADGE helper (drilldown tables & Daily Pulse) ────────
+function fillTd(pct, pad) {
+  const p = pad || '7px 10px';
+  if (pct === null || pct === undefined) return `<td style="padding:${p};text-align:right;color:#6e7681">—</td>`;
+  const bg = pct >= 90 ? '#0f2a1a' : pct >= 85 ? '#2a1e00' : '#2a0f0f';
+  const fg = pct >= 90 ? '#3fb950' : pct >= 85 ? '#d29922' : '#f85149';
+  return `<td style="padding:${p};text-align:right;background:${bg};color:${fg};font-weight:700;font-size:10px">${pct.toFixed(1)}%</td>`;
+}
+
 function buildRows(metric, tbodyId) {
   const h = DATA.hierarchy, tbody = document.getElementById(tbodyId);
   tbody.innerHTML = '';
@@ -425,11 +436,13 @@ function buildRows(metric, tbodyId) {
     grandAchNum += bAch;           // per-brand (proj or actual) — correct blended grand total
     const bid = brand.replace(/\s/g,'_');
 
+    const brFill = (DATA.fill_rate||{})[brand]?._brand_fill;
     tbody.innerHTML += `<tr class="row-brand" onclick="toggleBrand('${bid}',this)">
       <td><span class="exp-icon">▸</span>${brand}</td>
       <td>${fL(bMar,metric)}</td><td>${fL(bLmtd,metric)}</td><td>${fL(bApr,metric)}</td>
       <td class="proj-val">${fL(bProj,metric)}</td><td class="tgt-val">${fL(bTgt,metric)}</td>
       <td>${fAch(bAch,bTgt)}</td><td>${fPct(bApr,bLmtd)}</td>
+      ${fillTd(brFill)}
     </tr>`;
 
     Object.entries(d.categories||{})
@@ -439,11 +452,13 @@ function buildRows(metric, tbodyId) {
       const cTgt=gV(cData.tgt,metric), cProj=gProj(cData,metric);
       const cAch = cProj || cApr;
       const cid = bid+'_'+cat.replace(/[\s/]/g,'_');
+      const catFill2 = (DATA.fill_rate||{})[brand]?.[cat]?.fill_pct;
       tbody.innerHTML += `<tr class="row-cat sub-row brand-${bid}" onclick="toggleCat('${cid}',this)">
         <td><span class="exp-icon">▸</span>${cat}</td>
         <td>${fL(cMar,metric)}</td><td>${fL(cLmtd,metric)}</td><td>${fL(cApr,metric)}</td>
         <td class="proj-val">${fL(cProj,metric)}</td><td class="tgt-val">${fL(cTgt,metric)}</td>
         <td>${fAch(cAch,cTgt)}</td><td>${fPct(cApr,cLmtd)}</td>
+        ${fillTd(catFill2)}
       </tr>`;
 
       Object.entries(cData.subcats||{})
@@ -453,11 +468,13 @@ function buildRows(metric, tbodyId) {
         const sTgt=gV(sData.tgt,metric), sProj=gProj(sData,metric);
         const sAch = sProj || sApr;
         const sid = cid+'_'+sub.replace(/[\s/]/g,'_');
+        const subFill = (DATA.fill_rate||{})[brand]?.[cat]?.fill_pct;
         tbody.innerHTML += `<tr class="row-sub sub-row cat-${cid}" onclick="toggleSub('${sid}',this)">
           <td><span class="exp-icon">▸</span>${sub}</td>
           <td>${fL(sMar,metric)}</td><td>${fL(sLmtd,metric)}</td><td>${fL(sApr,metric)}</td>
           <td class="proj-val">${fL(sProj,metric)}</td><td class="tgt-val">${fL(sTgt,metric)}</td>
           <td>${fAch(sAch,sTgt)}</td><td>${fPct(sApr,sLmtd)}</td>
+          ${fillTd(subFill)}
         </tr>`;
 
         (sData.products||[])
@@ -467,6 +484,7 @@ function buildRows(metric, tbodyId) {
           const pProj=gProj(prod,metric);
           const pTgt = prod.tgt ? gV(prod.tgt, metric) : 0;
           const pAch = pProj || pApr;
+          const prodSkuFill = (() => { const skus=(DATA.fill_rate||{})[brand]?.[cat]?.skus||[]; const s=skus.find(x=>x.name===prod.name); return s?s.fillPct:null; })();
           tbody.innerHTML += `<tr class="row-prod prod-row sub-${sid}">
             <td>${prod.name}</td>
             <td>${fL(pMar,metric)}</td><td>${fL(pLmtd,metric)}</td><td>${fL(pApr,metric)}</td>
@@ -474,6 +492,7 @@ function buildRows(metric, tbodyId) {
             <td class="tgt-val">${pTgt>0?fL(pTgt,metric):'–'}</td>
             <td>${pTgt>0?fAch(pAch,pTgt):'–'}</td>
             <td>${fPct(pApr,pLmtd)}</td>
+            ${fillTd(prodSkuFill)}
           </tr>`;
         });
       });
@@ -485,6 +504,7 @@ function buildRows(metric, tbodyId) {
     <td>${fL(gMar,metric)}</td><td>${fL(totLmtd,metric)}</td><td>${fL(gApr,metric)}</td>
     <td class="proj-val">${fL(totProj||null,metric)}</td><td class="tgt-val">${fL(gTgt,metric)}</td>
     <td>${fAch(grandAchNum,gTgt)}</td><td>${fPct(gApr,totLmtd)}</td>
+    <td style="color:#6e7681">—</td>
   </tr>`;
 }
 
@@ -614,7 +634,7 @@ function toggle7Sub(id,row) {
   document.querySelectorAll('.s7sub-'+id).forEach(r=>{r.style.display=r.style.display==='table-row'?'none':'table-row';});
 }
 
-// ── EMAIL BUILDER ──────────────────────────────────────────────────
+// ── EMAIL BUILDER ────────────────────────────────────���─────────────
 function buildEmailHTML() {
   const h = DATA.hierarchy, m = DATA.meta;
   const asOf = m.as_of || 'Latest';
@@ -627,9 +647,8 @@ function buildEmailHTML() {
     return istNow.getDate()-1;
   })();
   const cMon = DATA.meta.curr_month_name || 'Curr';
-  const pMon = DATA.meta.prev_month_name || 'Prev';
 
-  // ── Helpers ────────────────────────────────────────────────────────
+  // ── Helpers ─────────────────────���──────────────────────────────────
   const fmtNr  = v => v && v>0 ? '₹'+(v/1e5).toFixed(1)+'L' : '–';
   const fmtQty = v => v ? Number(v).toLocaleString('en-IN',{maximumFractionDigits:0}) : '–';
   const fmtPct = (curr, prev) => {
@@ -637,198 +656,254 @@ function buildEmailHTML() {
     return ((curr-prev)/prev*100).toFixed(1);
   };
   const fmtAch = (proj, tgt) => (tgt>0 && proj) ? (proj/tgt*100).toFixed(1) : null;
-  const colAch  = p => p===null?'#718096':parseFloat(p)>=105?'#276749':parseFloat(p)>=90?'#276749':'#c53030';
+  const colAch  = p => p===null?'#718096':parseFloat(p)>=90?'#276749':'#c53030';
 
-  // ── Pill renderers ─────────────────────────────────────────────────
-  // Achievement: 🚀 ≥105% | plain green 90–104% | ⚠️ <90%
+  // ── Pill renderers ──────────────────��──────────────────────────────
   const pillAch = p => {
     if (p === null) return '<span style="color:#a0aec0;font-size:12px">–</span>';
     const n = parseFloat(p);
-    const base = 'padding:3px 10px;border-radius:12px;font-size:12px;font-weight:800;white-space:nowrap;display:inline-block';
+    const base = 'padding:3px 8px;border-radius:10px;font-size:11px;font-weight:800;white-space:nowrap;display:inline-block';
     if (n >= 105) return `<span style="${base};background:#c6f6d5;color:#276749">🚀 ${p}%</span>`;
     if (n >= 90)  return `<span style="${base};background:#c6f6d5;color:#276749">${p}%</span>`;
     return             `<span style="${base};background:#fed7d7;color:#c53030">⚠️ ${p}%</span>`;
   };
-  // Growth: 🚀 ≥+15% | green +0–14% | amber −0.1–9.9% | ⚠️ ≤−10%
   const pillChg = p => {
     if (p === null) return '<span style="color:#a0aec0;font-size:12px">–</span>';
     const n = parseFloat(p), abs = Math.abs(n).toFixed(1);
-    const base = 'padding:3px 10px;border-radius:12px;font-size:12px;font-weight:800;white-space:nowrap;display:inline-block';
+    const base = 'padding:3px 8px;border-radius:10px;font-size:11px;font-weight:800;white-space:nowrap;display:inline-block';
     if (n >= 15)  return `<span style="${base};background:#c6f6d5;color:#276749">🚀 +${abs}%</span>`;
     if (n >= 0)   return `<span style="${base};background:#c6f6d5;color:#276749">+${abs}%</span>`;
     if (n > -10)  return `<span style="${base};background:#fefcbf;color:#975a16">−${abs}%</span>`;
     return             `<span style="${base};background:#fed7d7;color:#c53030">⚠️ −${abs}%</span>`;
   };
+  // Fill rate pill: ≥90 green | 85-89 amber | <85 red
+  const fillPill = pct => {
+    if (pct === null || pct === undefined) return '<span style="color:#a0aec0;font-size:11px">–</span>';
+    const n = parseFloat(pct), s = n.toFixed(0)+'%';
+    const base = 'padding:2px 7px;border-radius:8px;font-size:11px;font-weight:800;display:inline-block';
+    if (n >= 90) return `<span style="${base};background:#c6f6d5;color:#276749">${s}</span>`;
+    if (n >= 85) return `<span style="${base};background:#fefcbf;color:#975a16">${s}</span>`;
+    return           `<span style="${base};background:#fed7d7;color:#c53030">⚠️ ${s}</span>`;
+  };
 
-  const TH  = (txt,col) => `<td style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:${col||'#a0aec0'};text-transform:uppercase;letter-spacing:.4px;background:#f7fafc;border-bottom:2px solid #e2e8f0;white-space:nowrap">${txt}</td>`;
-  const THL = txt => `<td style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.4px;background:#f7fafc;border-bottom:2px solid #e2e8f0">${txt}</td>`;
+  const TH  = (txt,col) => `<td style="padding:6px 8px;text-align:right;font-size:9px;font-weight:700;color:${col||'#a0aec0'};text-transform:uppercase;letter-spacing:.4px;background:#f7fafc;border-bottom:2px solid #e2e8f0;white-space:nowrap">${txt}</td>`;
+  const THL = txt => `<td style="padding:6px 8px;text-align:left;font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.4px;background:#f7fafc;border-bottom:2px solid #e2e8f0">${txt}</td>`;
 
-  // ── Per-brand block: header + progress bar + NR/Units rows + cat rows ──
+  // ── Portfolio totals for % Biz ──────────────────────────────────────
+  const totAprNr  = brands.reduce((s,b)=>s+(gV(h[b]?.apr,'net_rev')||0),0);
+  const totAprQty = brands.reduce((s,b)=>s+(gV(h[b]?.apr,'qty')||0),0);
+  const totLmtdNr = brands.reduce((s,b)=>s+(gLmtd(h[b],'net_rev')||0),0);
+  const totProjNr = brands.reduce((s,b)=>s+(gProj(h[b],'net_rev')||0),0);
+  const totTgtNr  = brands.reduce((s,b)=>s+(gV(h[b]?.tgt,'net_rev')||0),0);
+  const totChgNr  = fmtPct(totAprNr, totLmtdNr);
+  const totAchNr  = fmtAch(totProjNr||totAprNr, totTgtNr);
+
+  // ── Per-brand block: 10-column layout ─────────────────────────────────────────────
+  // Columns: Metric | % Biz | MTD | L7D | WoW % | Forecast | Target | Achievement | Growth | L10D Fill
   function makeBrandBlock(brand) {
     const d = h[brand]; if (!d) return '';
     const bc = BC[brand];
-    // NR
-    const aprNr=gV(d.apr,'net_rev'), marNr=gV(d.mar,'net_rev'), lmtdNr=gLmtd(d,'net_rev');
-    const projNr=gProj(d,'net_rev'), tgtNr=gV(d.tgt,'net_rev');
-    const nrChg = fmtPct(aprNr, lmtdNr);
-    const nrAch = fmtAch(projNr||aprNr, tgtNr);
-    const nrAchBar = Math.min(100, parseFloat(nrAch)||0);
-    // Units
-    const aprQty=gV(d.apr,'qty'), marQty=gV(d.mar,'qty'), lmtdQty=gLmtd(d,'qty');
-    const projQty=gProj(d,'qty'), tgtQty=gV(d.tgt,'qty');
-    const qtyChg = fmtPct(aprQty, lmtdQty);
-    const qtyAch = fmtAch(projQty||aprQty, tgtQty);
+    const fr = (DATA.fill_rate||{})[brand] || {};  // fill rate data for this brand
 
-    // Category rows (sorted by MTD NR desc)
+    // NR metrics
+    const aprNr  = gV(d.apr,'net_rev'), lmtdNr = gLmtd(d,'net_rev');
+    const projNr = gProj(d,'net_rev'), tgtNr = gV(d.tgt,'net_rev');
+    const l7Nr   = gV(d.l7,'net_rev'), p7Nr = gV(d.p7,'net_rev');
+    const nrChg  = fmtPct(aprNr, lmtdNr);
+    const nrWow  = fmtPct(l7Nr, p7Nr);
+    const nrAch  = fmtAch(projNr||aprNr, tgtNr);
+    const nrAchBar = Math.min(100, parseFloat(nrAch)||0);
+    const nrBiz  = totAprNr>0 ? (aprNr/totAprNr*100).toFixed(0)+'%' : '–';
+
+    // Units metrics
+    const aprQty = gV(d.apr,'qty'), lmtdQty = gLmtd(d,'qty');
+    const projQty= gProj(d,'qty'), tgtQty = gV(d.tgt,'qty');
+    const l7Qty  = gV(d.l7,'qty'), p7Qty = gV(d.p7,'qty');
+    const qtyChg = fmtPct(aprQty, lmtdQty);
+    const qtyWow = fmtPct(l7Qty, p7Qty);
+    const qtyAch = fmtAch(projQty||aprQty, tgtQty);
+    const qtyBiz = totAprQty>0 ? (aprQty/totAprQty*100).toFixed(0)+'%' : '–';
+
+    // Brand-level fill rate
+    const brandFill = fr._brand_fill != null ? fr._brand_fill : null;
+
+    // Category rows sorted by MTD NR desc
     const catRows = Object.entries(d.categories||{})
       .sort(([,a],[,b])=>gV(b.apr,'net_rev')-gV(a.apr,'net_rev'))
       .map(([cat,cd]) => {
-        const cAprNr=gV(cd.apr,'net_rev'), cMarNr=gV(cd.mar,'net_rev'), cLmtdNr=gLmtd(cd,'net_rev');
-        const cProjNr=gProj(cd,'net_rev'), cTgtNr=gV(cd.tgt,'net_rev');
-        const cAprQty=gV(cd.apr,'qty'), cLmtdQty=gLmtd(cd,'qty'), cTgtQty=gV(cd.tgt,'qty'), cProjQty=gProj(cd,'qty');
-        const cNrChg=fmtPct(cAprNr,cLmtdNr), cNrAch=fmtAch(cProjNr||cAprNr,cTgtNr);
-        const cQtyChg=fmtPct(cAprQty,cLmtdQty), cQtyAch=fmtAch(cProjQty||cAprQty,cTgtQty);
+        const cAprNr  = gV(cd.apr,'net_rev'), cLmtdNr = gLmtd(cd,'net_rev');
+        const cProjNr = gProj(cd,'net_rev'),  cTgtNr  = gV(cd.tgt,'net_rev');
+        const cL7Nr   = gV(cd.l7,'net_rev'),  cP7Nr   = gV(cd.p7,'net_rev');
+        const cAprQty = gV(cd.apr,'qty'),      cLmtdQty= gLmtd(cd,'qty');
+        const cProjQty= gProj(cd,'qty'),       cTgtQty = gV(cd.tgt,'qty');
+        const cL7Qty  = gV(cd.l7,'qty'),       cP7Qty  = gV(cd.p7,'qty');
+        const cNrChg  = fmtPct(cAprNr,cLmtdNr), cNrWow = fmtPct(cL7Nr,cP7Nr);
+        const cNrAch  = fmtAch(cProjNr||cAprNr,cTgtNr);
+        const cQtyChg = fmtPct(cAprQty,cLmtdQty), cQtyWow = fmtPct(cL7Qty,cP7Qty);
+        const cQtyAch = fmtAch(cProjQty||cAprQty,cTgtQty);
+        const cBizNr  = totAprNr>0  ? (cAprNr/totAprNr*100).toFixed(0)+'%'  : '–';
+        const cBizQty = totAprQty>0 ? (cAprQty/totAprQty*100).toFixed(0)+'%' : '–';
+        const catFill = (fr[cat]?.fill_pct != null) ? fr[cat].fill_pct : null;
+
+        const pS = 'padding:5px 8px;text-align:right;font-size:11px;';
         return `
         <tr style="border-bottom:1px solid #f0f4f8">
-          <td style="padding:6px 10px 6px 20px;font-size:12px;font-weight:700;color:#2d3748" colspan="2">${cat}</td>
-          <td style="padding:6px 10px;text-align:right;font-size:12px;color:#718096">${fmtNr(cMarNr)}</td>
-          <td style="padding:6px 10px;text-align:right;font-size:12px;color:#718096">${fmtNr(cLmtdNr)}</td>
-          <td style="padding:6px 10px;text-align:right;font-size:13px;font-weight:800;color:#1a202c">${fmtNr(cAprNr)}</td>
-          <td style="padding:6px 10px;text-align:right;font-size:12px;color:#2b6cb0;font-weight:600">${cProjNr?fmtNr(cProjNr):'–'}</td>
-          <td style="padding:6px 10px;text-align:right;font-size:12px;color:#975a16">${fmtNr(cTgtNr)}</td>
-          <td style="padding:6px 10px;text-align:right">${pillAch(cNrAch)}</td>
-          <td style="padding:6px 10px;text-align:right">${pillChg(cNrChg)}</td>
+          <td style="padding:5px 8px 5px 18px;font-size:11px;font-weight:700;color:#2d3748" colspan="2">${cat}</td>
+          <td style="${pS}font-weight:800;color:#1a202c">${fmtNr(cAprNr)}</td>
+          <td style="${pS}color:#4a5568">${fmtNr(cL7Nr)}</td>
+          <td style="${pS}">${pillChg(cNrWow)}</td>
+          <td style="${pS}color:#2b6cb0;font-weight:600">${cProjNr?fmtNr(cProjNr):'–'}</td>
+          <td style="${pS}color:#975a16">${fmtNr(cTgtNr)}</td>
+          <td style="${pS}">${pillAch(cNrAch)}</td>
+          <td style="${pS}">${pillChg(cNrChg)}</td>
+          <td style="${pS}">${fillPill(catFill)}</td>
         </tr>
         <tr style="border-bottom:2px solid #edf2f7">
-          <td style="padding:3px 10px 7px 20px;font-size:11px;color:#2d3748;font-weight:700" colspan="2">↳ DRR Units</td>
-          <td style="padding:3px 10px 7px;text-align:right;font-size:11px;color:#2d3748">${fmtQty(gV(cd.mar,'qty'))}</td>
-          <td style="padding:3px 10px 7px;text-align:right;font-size:11px;color:#2d3748">${fmtQty(cLmtdQty)}</td>
-          <td style="padding:3px 10px 7px;text-align:right;font-size:12px;font-weight:800;color:#2d3748">${fmtQty(cAprQty)}</td>
-          <td style="padding:3px 10px 7px;text-align:right;font-size:11px;color:#2b6cb0">${cProjQty?fmtQty(cProjQty):'–'}</td>
-          <td style="padding:3px 10px 7px;text-align:right;font-size:11px;color:#975a16">${fmtQty(cTgtQty)}</td>
-          <td style="padding:3px 10px 7px;text-align:right">${pillAch(cQtyAch)}</td>
-          <td style="padding:3px 10px 7px;text-align:right">${pillChg(cQtyChg)}</td>
+          <td style="padding:3px 8px 6px 18px;font-size:10px;color:#4a5568;font-weight:700" colspan="2">↳ Units</td>
+          <td style="${pS}font-weight:800;color:#2d3748">${fmtQty(cAprQty)}</td>
+          <td style="${pS}color:#4a5568">${fmtQty(cL7Qty)}</td>
+          <td style="${pS}">${pillChg(cQtyWow)}</td>
+          <td style="${pS}color:#2b6cb0">${cProjQty?fmtQty(cProjQty):'–'}</td>
+          <td style="${pS}color:#975a16">${fmtQty(cTgtQty)}</td>
+          <td style="${pS}">${pillAch(cQtyAch)}</td>
+          <td style="${pS}">${pillChg(cQtyChg)}</td>
+          <td style="${pS}">${fillPill(catFill)}</td>
         </tr>`;
       }).join('');
 
     return `
-    <table width="100%" style="border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:16px;font-family:'Helvetica Neue',Arial,sans-serif">
+    <table width="100%" style="border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:14px;font-family:'Helvetica Neue',Arial,sans-serif">
       <!-- Brand header -->
       <tr>
-        <td colspan="9" style="background:${bc};padding:10px 14px">
+        <td colspan="10" style="background:${bc};padding:9px 12px">
           <table width="100%" style="border-collapse:collapse">
             <tr>
-              <td style="color:#fff;font-size:14px;font-weight:800">${brand}</td>
+              <td style="color:#fff;font-size:13px;font-weight:800">${brand}
+                <span style="font-size:10px;font-weight:600;opacity:.75;margin-left:6px">${fillPill(brandFill).replace('color:#276749','color:#fff').replace('color:#975a16','color:rgba(255,255,255,.9)').replace('color:#c53030','color:#ffb3b3')}</span>
+              </td>
               <td style="text-align:right;white-space:nowrap">
-                <span style="color:#fff;font-size:17px;font-weight:800">${fmtNr(aprNr)}</span>
-                <span style="color:rgba(255,255,255,.65);font-size:11px;margin-left:6px">DRR NR MTD</span>
-                ${nrChg!==null?`<span style="color:#fff;font-size:12px;font-weight:700;margin-left:10px">${parseFloat(nrChg)>=0?'+':''}${nrChg}%</span>`:''}
-                <span style="background:rgba(0,0,0,.25);color:#fff;font-size:11px;font-weight:800;padding:3px 10px;border-radius:10px;margin-left:10px">${nrAch!==null?nrAch+'%':'–'} ach</span>
+                <span style="color:#fff;font-size:16px;font-weight:800">${fmtNr(aprNr)}</span>
+                <span style="color:rgba(255,255,255,.65);font-size:10px;margin-left:5px">DRR NR MTD</span>
+                ${nrChg!==null?`<span style="color:#fff;font-size:11px;font-weight:700;margin-left:8px">${parseFloat(nrChg)>=0?'+':''}${nrChg}%</span>`:''}
+                <span style="background:rgba(0,0,0,.25);color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px;margin-left:8px">${nrAch!==null?nrAch+'%':'–'} ach</span>
               </td>
             </tr>
           </table>
         </td>
       </tr>
-      <!-- Achievement bar (table-based, works in all email clients) -->
+      <!-- Achievement bar -->
       <tr>
-        <td colspan="9" style="padding:7px 14px 9px;background:#fff;border-bottom:1px solid #edf2f7">
-          <table width="100%" style="border-collapse:collapse;margin-bottom:3px">
+        <td colspan="10" style="padding:6px 12px 8px;background:#fff;border-bottom:1px solid #edf2f7">
+          <table width="100%" style="border-collapse:collapse;margin-bottom:2px">
             <tr>
               <td style="font-size:9px;color:#a0aec0">0%</td>
-              <td style="text-align:center;font-size:10px;font-weight:700;color:${colAch(nrAch)}">${nrAch!==null?nrAch+'%':'–'} of ${fmtNr(tgtNr)} target</td>
+              <td style="text-align:center;font-size:9px;font-weight:700;color:${colAch(nrAch)}">${nrAch!==null?nrAch+'%':'–'} of ${fmtNr(tgtNr)} target</td>
               <td style="text-align:right;font-size:9px;color:#a0aec0">100%</td>
             </tr>
           </table>
-          <table width="100%" style="border-collapse:collapse;height:5px;border-radius:3px;overflow:hidden">
+          <table width="100%" style="border-collapse:collapse;height:4px;overflow:hidden">
             <tr>
-              <td width="${nrAchBar}%" style="height:5px;background:${colAch(nrAch)};border-radius:3px 0 0 3px"></td>
-              <td style="height:5px;background:#edf2f7"></td>
+              <td width="${nrAchBar}%" style="height:4px;background:${colAch(nrAch)};border-radius:3px 0 0 3px"></td>
+              <td style="height:4px;background:#edf2f7"></td>
             </tr>
           </table>
         </td>
       </tr>
-      <!-- Column headers -->
-      <tr>${THL('Metric')}${THL('')}${TH(pMon+' Full')}${TH('Prior Period')}${TH(cMon+' MTD')}${TH('Forecast','#90cdf4')}${TH('Target','#fbd38d')}${TH('Achievement')}${TH('Growth')}</tr>
+      <!-- Column headers: Metric | % Biz | MTD | L7D | WoW % | Forecast | Target | Achievement | Growth | L10D Fill -->
+      <tr>${THL('Metric')}${TH('% Biz')}${TH(cMon+' MTD')}${TH('L7D DRR')}${TH('WoW %')}${TH('Forecast','#90cdf4')}${TH('Target','#fbd38d')}${TH('Achievement')}${TH('Growth')}${TH('L10D Fill')}</tr>
       <!-- NR row -->
       <tr style="border-bottom:1px solid #f0f4f8">
-        <td style="padding:10px 10px;font-size:11px;font-weight:800;color:#4a5568;letter-spacing:.2px" colspan="2">DRR Net Revenue</td>
-        <td style="padding:10px 10px;text-align:right;font-size:13px;color:#4a5568">${fmtNr(marNr)}</td>
-        <td style="padding:10px 10px;text-align:right;font-size:13px;color:#4a5568">${fmtNr(lmtdNr)}</td>
-        <td style="padding:10px 10px;text-align:right;font-size:16px;font-weight:800;color:#1a202c">${fmtNr(aprNr)}</td>
-        <td style="padding:10px 10px;text-align:right;font-size:13px;font-weight:700;color:#2b6cb0">${projNr?fmtNr(projNr):'–'}</td>
-        <td style="padding:10px 10px;text-align:right;font-size:13px;color:#975a16">${fmtNr(tgtNr)}</td>
-        <td style="padding:10px 10px;text-align:right">${pillAch(nrAch)}</td>
-        <td style="padding:10px 10px;text-align:right">${pillChg(nrChg)}</td>
+        <td style="padding:9px 8px;font-size:11px;font-weight:800;color:#4a5568;letter-spacing:.2px" colspan="2">DRR Net Revenue</td>
+        <td style="padding:9px 8px;text-align:right;font-size:14px;font-weight:800;color:#1a202c">${fmtNr(aprNr)}</td>
+        <td style="padding:9px 8px;text-align:right;font-size:12px;color:#4a5568">${fmtNr(l7Nr)}</td>
+        <td style="padding:9px 8px;text-align:right">${pillChg(nrWow)}</td>
+        <td style="padding:9px 8px;text-align:right;font-size:12px;font-weight:700;color:#2b6cb0">${projNr?fmtNr(projNr):'–'}</td>
+        <td style="padding:9px 8px;text-align:right;font-size:12px;color:#975a16">${fmtNr(tgtNr)}</td>
+        <td style="padding:9px 8px;text-align:right">${pillAch(nrAch)}</td>
+        <td style="padding:9px 8px;text-align:right">${pillChg(nrChg)}</td>
+        <td style="padding:9px 8px;text-align:right">${fillPill(brandFill)}</td>
       </tr>
       <!-- Units row -->
       <tr style="border-bottom:2px solid #e2e8f0">
-        <td style="padding:10px 10px;font-size:11px;font-weight:800;color:#2d3748;letter-spacing:.2px" colspan="2">DRR Units</td>
-        <td style="padding:10px 10px;text-align:right;font-size:13px;color:#2d3748">${fmtQty(marQty)}</td>
-        <td style="padding:10px 10px;text-align:right;font-size:13px;color:#2d3748">${fmtQty(lmtdQty)}</td>
-        <td style="padding:10px 10px;text-align:right;font-size:16px;font-weight:800;color:#2d3748">${fmtQty(aprQty)}</td>
-        <td style="padding:10px 10px;text-align:right;font-size:13px;font-weight:700;color:#2b6cb0">${projQty?fmtQty(projQty):'–'}</td>
-        <td style="padding:10px 10px;text-align:right;font-size:13px;font-weight:600;color:#975a16">${fmtQty(tgtQty)}</td>
-        <td style="padding:10px 10px;text-align:right">${pillAch(qtyAch)}</td>
-        <td style="padding:10px 10px;text-align:right">${pillChg(qtyChg)}</td>
+        <td style="padding:9px 8px;font-size:11px;font-weight:800;color:#2d3748;letter-spacing:.2px" colspan="2">DRR Units</td>
+        <td style="padding:9px 8px;text-align:right;font-size:14px;font-weight:800;color:#2d3748">${fmtQty(aprQty)}</td>
+        <td style="padding:9px 8px;text-align:right;font-size:12px;color:#4a5568">${fmtQty(l7Qty)}</td>
+        <td style="padding:9px 8px;text-align:right">${pillChg(qtyWow)}</td>
+        <td style="padding:9px 8px;text-align:right;font-size:12px;font-weight:700;color:#2b6cb0">${projQty?fmtQty(projQty):'–'}</td>
+        <td style="padding:9px 8px;text-align:right;font-size:12px;color:#975a16">${fmtQty(tgtQty)}</td>
+        <td style="padding:9px 8px;text-align:right">${pillAch(qtyAch)}</td>
+        <td style="padding:9px 8px;text-align:right">${pillChg(qtyChg)}</td>
+        <td style="padding:9px 8px;text-align:right">${fillPill(brandFill)}</td>
       </tr>
       <!-- Category breakdown -->
-      <tr><td colspan="9" style="padding:5px 10px;font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.6px;background:#fafbfc;border-bottom:1px solid #edf2f7">Category Breakdown</td></tr>
+      <tr><td colspan="10" style="padding:4px 8px;font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.6px;background:#fafbfc;border-bottom:1px solid #edf2f7">Category Breakdown</td></tr>
       ${catRows}
     </table>`;
   }
 
-  // ── 7-day section (unchanged logic, cleaner render) ──────────────
-  function make7DaySection() {
-    const sd = DATA.seven_day, meta = DATA.meta;
-    if (!sd) return '';
-    const l7Label = meta.l7_start && meta.l7_end ? `${meta.l7_start}–${meta.l7_end}` : 'Last 7 Days';
-    const p7Label = meta.p7_start && meta.p7_end ? `${meta.p7_start}–${meta.p7_end}` : 'Prev 7 Days';
-    const BRC = {'Be Bodywise':'#ebf8ff','Little Joys':'#f0fff4','Man Matters':'#fffaf0'};
-    const BRB = {'Be Bodywise':'#bee3f8','Little Joys':'#9ae6b4','Man Matters':'#fbd38d'};
+  // ── Search trends table ────────────────────────��───────────────────────────────────
+  function makeSearchTable() {
+    const sd = DATA.search || {};
+    if (Object.keys(sd).length === 0) return '';
+
+    const fmtN   = n => n ? Number(n).toLocaleString('en-IN') : '–';
+    const fmtSPct = p => {
+      if (p===null||p===undefined) return '<span style="color:#a0aec0;font-size:11px">–</span>';
+      const n=parseFloat(p), abs=Math.abs(n).toFixed(1);
+      const base='padding:2px 6px;border-radius:8px;font-size:10px;font-weight:800;display:inline-block;white-space:nowrap';
+      if (n>=10)  return `<span style="${base};background:#c6f6d5;color:#276749">+${abs}%</span>`;
+      if (n>=0)   return `<span style="${base};background:#c6f6d5;color:#276749">+${abs}%</span>`;
+      if (n>-10)  return `<span style="${base};background:#fefcbf;color:#975a16">−${abs}%</span>`;
+      return           `<span style="${base};background:#fed7d7;color:#c53030">−${abs}%</span>`;
+    };
+
+    // Groups: brand row then competitor rows
+    const groups = [
+      { brand:'Be Bodywise',   comps:['Chemist at Play','Wishcare'],  color:'#2b6cb0' },
+      { brand:'Little Joys',   comps:['Gritzo'],                      color:'#276749' },
+      { brand:'Man Matters',   comps:[],                              color:'#975a16' }
+    ];
+
     let rows = '';
-    brands.forEach(brand => {
-      const d = sd[brand]; if (!d) return;
-      const bl7=d.l7?.qty||0, bp7=d.p7?.qty||0;
-      const bPct = fmtPct(bl7, bp7);
-      rows += `<tr style="background:${BRC[brand]};border-bottom:2px solid ${BRB[brand]}">
-        <td style="padding:7px 10px;font-weight:800;color:#1a202c;font-size:12px">${brand}</td>
-        <td style="padding:7px 10px;text-align:right;font-size:12px">${fmtQty(bp7)}</td>
-        <td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:700">${fmtQty(bl7)}</td>
-        <td style="padding:7px 10px;text-align:right">${pillChg(bPct)}</td>
+    for (const g of groups) {
+      // Divider
+      rows += `<tr><td colspan="4" style="padding:5px 10px;font-size:9px;font-weight:800;color:#a0aec0;text-transform:uppercase;letter-spacing:.5px;background:#fafbfc;border-bottom:1px solid #edf2f7">${g.brand} &amp; Competitors</td></tr>`;
+      // Brand row
+      const bd = sd[g.brand];
+      rows += `<tr style="border-bottom:1px solid #f0f4f8">
+        <td style="padding:7px 10px;font-size:12px;font-weight:800;color:${g.color}">${g.brand}</td>
+        <td style="padding:7px 10px;text-align:right;font-size:14px;font-weight:800;color:#1a202c">${bd?fmtN(bd.mtd_avg):'–'}</td>
+        <td style="padding:7px 10px;text-align:right">${bd?fmtSPct(bd.mtd_growth):fmtSPct(null)}</td>
+        <td style="padding:7px 10px;text-align:right">${bd?fmtSPct(bd.wow):fmtSPct(null)}</td>
       </tr>`;
-      Object.entries(d.categories||{})
-        .sort(([,a],[,b])=>(b.l7?.qty||0)-(a.l7?.qty||0))
-        .forEach(([cat,cd]) => {
-          const cl7=cd.l7?.qty||0, cp7=cd.p7?.qty||0;
-          const cPct = fmtPct(cl7, cp7);
-          rows += `<tr style="background:#fff;border-bottom:1px solid #edf2f7">
-            <td style="padding:5px 10px 5px 20px;color:#4a5568;font-size:11px;font-weight:600">${cat}</td>
-            <td style="padding:5px 10px;text-align:right;font-size:11px;color:#718096">${fmtQty(cp7)}</td>
-            <td style="padding:5px 10px;text-align:right;font-size:11px;font-weight:600">${fmtQty(cl7)}</td>
-            <td style="padding:5px 10px;text-align:right">${pillChg(cPct)}</td>
-          </tr>`;
-        });
-    });
+      // Competitor rows
+      for (const comp of g.comps) {
+        const cd = sd[comp];
+        rows += `<tr style="border-bottom:1px solid #f0f4f8">
+          <td style="padding:5px 10px 5px 22px;font-size:11px;color:#718096;font-weight:600">↳ ${comp}</td>
+          <td style="padding:5px 10px;text-align:right;font-size:12px;font-weight:700;color:#4a5568">${cd?fmtN(cd.mtd_avg):'–'}</td>
+          <td style="padding:5px 10px;text-align:right">${cd?fmtSPct(cd.mtd_growth):fmtSPct(null)}</td>
+          <td style="padding:5px 10px;text-align:right">${cd?fmtSPct(cd.wow):fmtSPct(null)}</td>
+        </tr>`;
+        if (!cd) {
+          // not in dataset note
+          rows = rows.replace(`↳ ${comp}</td>\n          <td style="padding:5px 10px;text-align:right;font-size:12px;font-weight:700;color:#4a5568">–</td>\n          <td style="padding:5px 10px;text-align:right">${fmtSPct(null)}</td>\n          <td style="padding:5px 10px;text-align:right">${fmtSPct(null)}</td>`,
+            `↳ ${comp}</td><td colspan="3" style="padding:5px 10px;font-size:10px;color:#a0aec0;font-style:italic">not in dataset</td>`);
+        }
+      }
+    }
+
     return `
-    <table width="100%" style="border-collapse:collapse;font-size:12px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:16px">
-      <thead><tr style="background:#2d3748">
-        <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.4px">Brand / Category</th>
-        <th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.4px">Prev 7D<br><span style="color:#718096;font-weight:400">${p7Label}</span></th>
-        <th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.4px">Last 7D<br><span style="color:#a0aec0;font-weight:400">${l7Label}</span></th>
-        <th style="padding:8px 10px;text-align:right;font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.4px">WoW Change</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
+    <table width="100%" style="border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:14px;font-family:'Helvetica Neue',Arial,sans-serif">
+      <tr style="background:#2d3748">
+        <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.4px">Brand</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.4px">MTD Avg Searches</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.4px">MTD Growth</th>
+        <th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.4px">WoW Change</th>
+      </tr>
+      ${rows}
     </table>`;
   }
-
-  // ── Totals for summary bar ────────────────────────────────────────
-  const totAprNr  = brands.reduce((s,b)=>s+(gV(h[b]?.apr,'net_rev')||0),0);
-  const totLmtdNr = brands.reduce((s,b)=>s+(gLmtd(h[b],'net_rev')||0),0);
-  const totAprQty = brands.reduce((s,b)=>s+(gV(h[b]?.apr,'qty')||0),0);
-  const totProjNr = brands.reduce((s,b)=>s+(gProj(h[b],'net_rev')||0),0);
-  const totTgtNr  = brands.reduce((s,b)=>s+(gV(h[b]?.tgt,'net_rev')||0),0);
-  const totChgNr  = fmtPct(totAprNr, totLmtdNr);
-  const totAchNr  = fmtAch(totProjNr||totAprNr, totTgtNr);
 
   const SB = (label, val, sub) =>
     `<td style="padding:12px 14px;text-align:center;border-right:1px solid #e2e8f0">
@@ -840,17 +915,17 @@ function buildEmailHTML() {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:'Helvetica Neue',Arial,sans-serif;background:#edf2f7;margin:0;padding:20px 0">
 <a href="${DASHBOARD_URL}" style="text-decoration:none;color:inherit;display:block">
-<table width="620" style="margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1);border-collapse:collapse">
+<table width="640" style="margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1);border-collapse:collapse">
 
   <!-- HEADER -->
-  <tr><td style="background:linear-gradient(135deg,#1a365d,#2b6cb0);padding:18px 22px">
+  <tr><td style="background:linear-gradient(135deg,#1a365d,#2b6cb0);padding:16px 20px">
     <table width="100%" style="border-collapse:collapse">
       <tr>
-        <td style="color:#fff;font-size:16px;font-weight:800">📦 Blinkit Daily</td>
+        <td style="color:#fff;font-size:15px;font-weight:800">📦 Blinkit Daily</td>
         <td style="text-align:right;background:rgba(255,255,255,.15);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;color:#bee3f8;white-space:nowrap">MOSAIC WELLNESS</td>
       </tr>
     </table>
-    <div style="color:#90cdf4;font-size:11px;margin-top:6px"><b>${asOf}</b> &nbsp;·&nbsp; ${cMon} MTD (${mtdDays} days) &nbsp;·&nbsp; tap to open full dashboard →</div>
+    <div style="color:#90cdf4;font-size:11px;margin-top:5px"><b>${asOf}</b> &nbsp;·&nbsp; ${cMon} MTD (${mtdDays} days) &nbsp;·&nbsp; tap to open full dashboard →</div>
   </td></tr>
 
   <!-- SUMMARY BAR -->
@@ -861,31 +936,30 @@ function buildEmailHTML() {
         ${SB('Target Achievement', totAchNr!==null?totAchNr+'%':'–', pillAch(totAchNr))}
         <td style="padding:12px 14px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.5px">MTD Units</div>
-          <div style="font-size:20px;font-weight:800;color:#1a202c;margin-top:4px">${fmtQty(totAprQty)}</div>
+          <div style="font-size:20px;font-weight:800;color:#1a202c;margin-top:4px">${fmtQty(brands.reduce((s,b)=>s+(gV(h[b]?.apr,'qty')||0),0))}</div>
         </td>
       </tr>
     </table>
   </td></tr>
 
   <!-- BRAND BLOCKS -->
-  <tr><td style="padding:16px 18px 4px">
+  <tr><td style="padding:14px 16px 4px">
     ${brands.map(b => makeBrandBlock(b)).join('')}
   </td></tr>
 
-  <!-- 7-DAY SECTION -->
-  <tr><td style="padding:0 18px 16px">
-    <div style="font-size:10px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.7px;padding:10px 0 8px;border-top:1px solid #edf2f7">📈 Units — Last 7 Days vs Previous 7 Days</div>
-    ${make7DaySection()}
+  <!-- SEARCH TRENDS -->
+  <tr><td style="padding:0 16px 14px">
+    <div style="font-size:10px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.7px;padding:8px 0 6px;border-top:1px solid #edf2f7">🔍 Search Trends — Blinkit</div>
+    ${makeSearchTable()}
   </td></tr>
 
   <!-- FOOTER -->
-  <tr><td style="background:#f7fafc;padding:12px 20px;text-align:center;font-size:10px;color:#a0aec0;border-top:1px solid #e2e8f0">
+  <tr><td style="background:#f7fafc;padding:10px 18px;text-align:center;font-size:10px;color:#a0aec0;border-top:1px solid #e2e8f0">
     Mosaic Wellness · Blinkit · ${new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})}
   </td></tr>
 
 </table></a></body></html>`;
 }
-
 function renderEmailTab() {
   const m = DATA.meta;
   const subj = `📦 Blinkit Daily Update — ${m.as_of}`;
@@ -912,7 +986,7 @@ function showToast(msg, color) {
 
 async function gmailCreateDraftWithToken(accessToken) {
   const TO  = 'anshul.bhatkar@mosaicwellness.in';
-  const CC  = 'sudarshan.balaraman@mosaicwellness.in,vaibhav.joneja@mosaicwellness.in';
+  const CC  = 'sudarshan.balaraman@mosaicwellness.in,vaibhav.joneja@mosaicwellness.in,revant@mosaicwellness.in,vipul.jadhav@mosaicwellness.in';
   const rawSubj = document.getElementById('email-subject-preview').textContent || '📦 Blinkit Daily Update';
   // RFC 2047 encoded-word: prevents UTF-8 garbling in email clients
   const encSubj = `=?UTF-8?B?${btoa(unescape(encodeURIComponent(rawSubj)))}?=`;
@@ -1205,7 +1279,9 @@ function buildPulseRows(metric) {
     return `<td><span class="${n>=0?'pos':'neg'}">${n>=0?'↑':'↓'} ${Math.abs(n).toFixed(1)}%</span></td>`;
   };
 
-  tbody.innerHTML = rows.map(p => `
+  tbody.innerHTML = rows.map(p => {
+    const pFill = (DATA.fill_rate||{})[p.brand]?.[p.cat]?.fill_pct;
+    return `
     <tr style="border-bottom:1px solid #0d1117" onmouseover="this.style.background='#1c2128'" onmouseout="this.style.background=''">
       <td style="padding-left:14px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name||p.iid}</td>
       <td style="color:${BC[p.brand]||'#8b949e'};font-weight:700;font-size:10px;white-space:nowrap">${p.brand}</td>
@@ -1213,9 +1289,11 @@ function buildPulseRows(metric) {
       <td>${fDP(p._yd,metric)}</td>
       ${pctCell(p._dod)}${pctCell(p._wow)}${pctCell(p._avg)}${pctCell(p._vs,true)}
       <td style="color:#8b949e;font-size:10px">${p._impact > 0 ? p._impact.toFixed(0) : '–'}</td>
-    </tr>`).join('');
+      ${fillTd(pFill,'7px 10px')}
+    </tr>`;
+  }).join('');
 
-  if (!rows.length) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#6e7681;padding:20px">No products match current filters</td></tr>';
+  if (!rows.length) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#6e7681;padding:20px">No products match current filters</td></tr>';
 }
 
 function setPulseMetric(m,evt) {
@@ -1289,44 +1367,39 @@ function refreshData() {
   document.getElementById('as-of').textContent = '⏳ Loading from GSheet…';
 
   const SID = DATA.meta.sheet_id;
-
-  // Year used only to scope the New Base query to current year.
-  // All month/day filtering is done in processAllData from the actual max date in data.
   const sys  = new Date();
   const sysY = sys.getFullYear();
 
-  // ── New Base (GID 1168753412) ─────────────────────────────────────
-  // Fetch full current year for Blinkit — JavaScript handles month filtering.
-  // GViz month() filter can silently drop rows; year-only is more reliable.
+  // ── New Base (GID 1168753412) ─────────────────────────────────────────────────
   const nbCols  = 'A,C,E,F,I,K,P,Q,U,Z';
   const nbWhere = `B='Blinkit' and year(A)=${sysY}`;
   const nbTql   = encodeURIComponent(`select ${nbCols} where ${nbWhere} order by A`);
 
-  // ── AOP Target (GID 629606959, headers=3) ─────────────────────────
-  // select A,C,G,J,K,L where C='Blinkit' → idx 0–5
+  // ── AOP Target (GID 629606959, headers=3) ─────────────────────────────────────
   const tgtTql  = encodeURIComponent(`select A,C,G,J,K,L where C='Blinkit'`);
 
-  // ── SKU Level — fetch as CSV to bypass active sheet filter ──────────
-  // GViz always respects the filter toolbar; /export?format=csv reads raw cells.
-  // Column positions (0-indexed): A=0 Platform, D=3 item_id, AH=33 Projected_DRR
-  // First 5 rows = notes/empty, row 6 = header → data starts at line index 6.
-  const skuCsvUrl = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=1200688139`;
+  // ── CSV fetch URLs ──────────────────────────────────────────────────────────────
+  const skuCsvUrl    = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=1200688139`;
+  const fillCsvUrl   = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=561583355`;
+  const searchCsvUrl = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=1473078428`;
 
-  function parseSkuCsv(text) {
-    function splitCsvRow(row) {
-      const fields = []; let cur = '', inQ = false;
-      for (let i = 0; i < row.length; i++) {
-        const c = row[i];
-        if (c === '"') { if (inQ && row[i+1]==='"') { cur+='"'; i++; } else inQ=!inQ; }
-        else if (c === ',' && !inQ) { fields.push(cur.trim()); cur = ''; }
-        else cur += c;
-      }
-      fields.push(cur.trim());
-      return fields;
+  // ── Shared CSV row splitter ─────────────────────────────────────────────────────────
+  function splitCsvRow(row) {
+    const fields = []; let cur = '', inQ = false;
+    for (let i = 0; i < row.length; i++) {
+      const c = row[i];
+      if (c === '"') { if (inQ && row[i+1]==='"') { cur+='"'; i++; } else inQ=!inQ; }
+      else if (c === ',' && !inQ) { fields.push(cur.trim()); cur = ''; }
+      else cur += c;
     }
+    fields.push(cur.trim());
+    return fields;
+  }
+
+  // ── SKU Level CSV parser ──────────────────────────────────────────────────────────────
+  function parseSkuCsv(text) {
     const lines = text.replace(/\r/g,'').split('\n');
     const map = {};
-    // Row index 0–4 = header block (6 header rows → skip first 6 lines)
     for (let i = 6; i < lines.length; i++) {
       const f = splitCsvRow(lines[i]);
       if (!f || f.length < 34) continue;
@@ -1339,19 +1412,136 @@ function refreshData() {
       if (numId && !isNaN(numId) && proj > 0)
         map[String(Math.round(numId))] = proj;
     }
-    console.log(`SKU CSV parsed: ${Object.keys(map).length} Blinkit projections (filter-bypassed)`);
+    console.log(`SKU CSV parsed: ${Object.keys(map).length} Blinkit projections`);
     return map;
   }
 
-  const BASE = `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json`;
+  // ── Fill Rate CSV parser (gid=561583355) ──────────────────────────────────────────
+  // Scans for the section with header: Item id | Name | L10D Fill | Qty Raised | Qty Sent | Category | Brand
+  // Weighted fill % = sum(Qty Sent) / sum(Qty Raised) per brand x category
+  function parseFillRateCsv(text) {
+    const lines = text.replace(/\r/g,'').split('\n');
+    let hdrIdx=-1, idxFill=-1, idxBrand=-1, idxCat=-1, idxQtyR=-1, idxQtyS=-1, idxName=-1;
+
+    for (let i = 0; i < lines.length; i++) {
+      const f   = splitCsvRow(lines[i]);
+      const low = f.map(x => x.toLowerCase().replace(/^"|"$/g,'').trim());
+      const fc  = low.findIndex(x => x.includes('l10d') && x.includes('fill'));
+      if (fc >= 0) {
+        hdrIdx = i; idxFill = fc;
+        idxName  = low.findIndex(x => x === 'name' || x.includes('product name'));
+        idxBrand = low.findIndex(x => x === 'brand');
+        idxCat   = low.findIndex(x => x.includes('update cat') || (x.includes('categor') && !x.includes('gc')));
+        idxQtyR  = low.findIndex(x => x.includes('qty') && x.includes('raised'));
+        idxQtyS  = low.findIndex((x,ci) => ci > idxQtyR && x.includes('qty') && (x.includes('sent') || x.includes('fulfi')));
+        if (idxQtyS === -1 && idxQtyR >= 0) idxQtyS = idxQtyR + 1;
+        break;
+      }
+    }
+    if (hdrIdx === -1) { console.warn('Fill rate: header not found in CSV'); return {}; }
+
+    const agg = {};
+    for (let i = hdrIdx + 1; i < lines.length; i++) {
+      const f = splitCsvRow(lines[i]);
+      if (!f || f.length < Math.max(idxFill, idxBrand, idxCat) + 1) continue;
+      const brand   = idxBrand >= 0 ? f[idxBrand].replace(/^"|"$/g,'').trim() : '';
+      const cat     = idxCat   >= 0 ? f[idxCat].replace(/^"|"$/g,'').trim()   : '';
+      const name    = idxName  >= 0 ? f[idxName].replace(/^"|"$/g,'').trim()  : '';
+      const fillStr = f[idxFill].replace(/^"|"$/g,'').trim();
+      const qtyRStr = idxQtyR >= 0 ? f[idxQtyR].replace(/^"|"$/g,'').trim() : '';
+      const qtySStr = idxQtyS >= 0 ? f[idxQtyS].replace(/^"|"$/g,'').trim() : '';
+      if (!brand || !cat || brand.includes('#') || cat.includes('#')) continue;
+      if (!fillStr || fillStr.includes('#')) continue;
+      const qtyR = parseFloat(qtyRStr.replace(/,/g,'')) || 0;
+      const qtyS = parseFloat(qtySStr.replace(/,/g,'')) || 0;
+      if (qtyR === 0) continue;
+      if (!agg[brand]) agg[brand] = {};
+      if (!agg[brand][cat]) agg[brand][cat] = {qtyR:0,qtyS:0,skus:[]};
+      agg[brand][cat].qtyR += qtyR;
+      agg[brand][cat].qtyS += qtyS;
+      agg[brand][cat].skus.push({name, fillPct:parseFloat(fillStr.replace('%',''))||0, qtyR});
+    }
+    const result = {};
+    for (const [brand, cats] of Object.entries(agg)) {
+      result[brand] = {};
+      let bR=0, bS=0;
+      for (const [cat, v] of Object.entries(cats)) {
+        const fill = v.qtyR>0 ? v.qtyS/v.qtyR*100 : null;
+        result[brand][cat] = {fill_pct:fill, qty_raised:v.qtyR, skus:v.skus.sort((a,b)=>b.qtyR-a.qtyR)};
+        bR+=v.qtyR; bS+=v.qtyS;
+      }
+      result[brand]._brand_fill = bR>0 ? bS/bR*100 : null;
+    }
+    console.log(`Fill rate parsed: ${Object.keys(result).length} brands`);
+    return result;
+  }
+
+  // ── Search Tracking CSV parser (gid=1473078428) ──────────────────────────────────
+  // Brand rows: col0=brand name, col1+ = daily search counts (newest first).
+  // Skip cols containing '%' or '#' (formula/pct cells in some brand rows).
+  function parseSearchCsv(text) {
+    const SBRAND = ['Be Bodywise','Little Joys','Man Matters','Chemist at Play','Wishcare','Gritzo'];
+    const lines  = text.replace(/\r/g,'').split('\n');
+    const raw    = {};
+    for (const line of lines) {
+      const f = splitCsvRow(line);
+      if (!f || f.length < 5) continue;
+      const bName = f[0].replace(/^"|"$/g,'').trim();
+      if (!SBRAND.includes(bName)) continue;
+      const vals = [];
+      for (let i = 1; i < f.length; i++) {
+        const s = f[i].replace(/^"|"$/g,'').trim();
+        if (s.includes('%') || s.includes('#') || s === '') continue;
+        const n = parseFloat(s.replace(/,/g,''));
+        if (!isNaN(n)) vals.push(n);
+      }
+      raw[bName] = vals;
+    }
+    const ist = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
+    const t0  = new Date(ist.getFullYear(), ist.getMonth(), ist.getDate()).getTime();
+    const DAY = 86400000;
+    const dateOf = i => new Date(t0 - (i+1)*DAY);
+    const cM=ist.getMonth(), cY=ist.getFullYear();
+    const pM=cM===0?11:cM-1, pY=cM===0?cY-1:cY;
+    const result = {};
+    for (const [brand, vals] of Object.entries(raw)) {
+      if (!vals || vals.length < 8) continue;
+      const mtdVals=[]; let maxMtdDay=0;
+      for (let i=0;i<vals.length;i++) {
+        const d=dateOf(i);
+        if (d.getMonth()===cM && d.getFullYear()===cY && vals[i]>0) {
+          mtdVals.push(vals[i]);
+          if (d.getDate()>maxMtdDay) maxMtdDay=d.getDate();
+        }
+      }
+      const mtdAvg = mtdVals.length>0 ? mtdVals.reduce((s,x)=>s+x,0)/mtdVals.length : 0;
+      const lmtdVals=[];
+      for (let i=0;i<vals.length;i++) {
+        const d=dateOf(i);
+        if (d.getMonth()===pM && d.getFullYear()===pY && d.getDate()<=maxMtdDay && vals[i]>0)
+          lmtdVals.push(vals[i]);
+      }
+      const lmtdAvg   = lmtdVals.length>0 ? lmtdVals.reduce((s,x)=>s+x,0)/lmtdVals.length : 0;
+      const mtdGrowth = lmtdAvg>0 ? (mtdAvg-lmtdAvg)/lmtdAvg*100 : null;
+      const nz = vals.filter(v=>v>0).slice(0,14);
+      const l7=nz.slice(0,7), p7=nz.slice(7,14);
+      const l7a=l7.length>0?l7.reduce((s,x)=>s+x,0)/l7.length:0;
+      const p7a=p7.length>0?p7.reduce((s,x)=>s+x,0)/p7.length:0;
+      const wow = p7a>0 ? (l7a-p7a)/p7a*100 : null;
+      result[brand] = {mtd_avg:Math.round(mtdAvg), mtd_growth:mtdGrowth, wow};
+    }
+    console.log(`Search CSV parsed: ${Object.keys(result).length} brands`);
+    return result;
+  }
+
+  const BASE   = `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json`;
   const nbUrl  = `${BASE}&gid=1168753412&range=A:Z&tq=${nbTql}`;
   const tgtUrl = `${BASE}&gid=629606959&range=A:L&headers=3&tq=${tgtTql}`;
 
-  // Fetch New Base + AOP Target via JSONP; SKU Level via raw CSV export
   Promise.all([
     gvizJsonp(nbUrl),
     gvizJsonp(tgtUrl),
-    fetch(skuCsvUrl).then(r => { if(!r.ok) throw new Error('CSV '+r.status); return r.text(); })
+    fetch(skuCsvUrl).then(r=>{ if(!r.ok) throw new Error('CSV '+r.status); return r.text(); })
                     .then(parseSkuCsv)
                     .catch(err => {
                       console.warn('SKU CSV fetch failed, falling back to GViz JSONP:', err.message);
@@ -1363,8 +1553,14 @@ function refreshData() {
                         });
                         return map;
                       });
-                    })
-  ]).then(([nbJson, tgtJson, projByIdMap]) => {
+                    }),
+    fetch(fillCsvUrl).then(r=>{ if(!r.ok) throw new Error('Fill CSV '+r.status); return r.text(); })
+                     .then(parseFillRateCsv)
+                     .catch(err=>{ console.warn('Fill rate fetch failed:', err.message); return {}; }),
+    fetch(searchCsvUrl).then(r=>{ if(!r.ok) throw new Error('Search CSV '+r.status); return r.text(); })
+                       .then(parseSearchCsv)
+                       .catch(err=>{ console.warn('Search CSV fetch failed:', err.message); return {}; })
+  ]).then(([nbJson, tgtJson, projByIdMap, fillRateData, searchData]) => {
       const nbRows  = nbJson.table?.rows?.length  || 0;
       const tgtRows = tgtJson.table?.rows?.length || 0;
       console.log('GViz rows — newBase:', nbRows, '| aopTarget:', tgtRows, '| skuProjections:', Object.keys(projByIdMap).length);
@@ -1373,7 +1569,7 @@ function refreshData() {
         console.log('newBase row[0]:', JSON.stringify(r0));
       } else console.warn('newBase: 0 rows — check WHERE clause or GID');
       if (tgtRows === 0) console.warn('aopTarget: 0 rows — check headers=3 or column refs');
-      processAllData(nbJson, tgtJson, projByIdMap);
+      processAllData(nbJson, tgtJson, projByIdMap, fillRateData, searchData);
       btn.textContent = '⟳ Refresh from GSheet'; btn.style.opacity='1';
     })
     .catch(err => {
@@ -1382,7 +1578,6 @@ function refreshData() {
       document.getElementById('as-of').textContent = '⚠️ GSheet unreachable — check console';
     });
 }
-
 // ── CORE DATA PROCESSOR ────────────────────────────────────────────
 // GViz column layout after explicit select:
 //
@@ -1404,7 +1599,7 @@ function refreshData() {
 //   LMTD = prev month days 1..mtdDays  (May 18 → LMTD = Apr 1–18)
 //   7-day: L7D = latestDate-6 … latestDate; P7D = latestDate-13 … latestDate-7
 // projByIdMap: pre-built {item_id → projected_DRR} from CSV export (filter-bypassed)
-function processAllData(nbJson, tgtJson, projByIdMap) {
+function processAllData(nbJson, tgtJson, projByIdMap, fillRateData, searchData) {
   const v  = (r,i) => { const c=r.c?.[i]; return (c&&c.v!=null)?c.v:null; };
   const vn = (r,i) => { const x=v(r,i); return (x!=null && !isNaN(x)) ? Number(x) : 0; };
   const vs = (r,i) => { const x=v(r,i); return x!=null?String(x).trim():''; };
@@ -1680,6 +1875,8 @@ function processAllData(nbJson, tgtJson, projByIdMap) {
   // ── 7. Write back to DATA ─────────────────────────────────────────
   DATA.hierarchy = h;
   DATA.seven_day = sd;
+  DATA.fill_rate = fillRateData || {};
+  DATA.search    = searchData    || {};
   const cName = MONTH_NAMES[currM-1];
   const pName = MONTH_NAMES[prevM-1];
   // as_of = the actual latest date from data (not system clock)

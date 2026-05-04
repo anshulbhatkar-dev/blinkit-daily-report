@@ -1371,12 +1371,13 @@ function refreshData() {
   const sysY = sys.getFullYear();
 
   // ── New Base (GID 1168753412) ─────────────────────────────────────────────────
-  const nbCols  = 'A,C,E,F,I,K,P,Q,U,Z';
-  const nbWhere = `B='Blinkit' and year(A)=${sysY}`;
+  const nbCols  = 'A,B,C,E,F,I,K,P,Q,U,Z';  // added B so we can see channel values in console
+  // Try exact match first; if 0 rows, a second fallback (no channel filter) will run
+  const nbWhere = `lower(B) contains 'blinkit' and year(A)=${sysY}`;
   const nbTql   = encodeURIComponent(`select ${nbCols} where ${nbWhere} order by A`);
 
   // ── AOP Target (GID 629606959, headers=3) ─────────────────────────────────────
-  const tgtTql  = encodeURIComponent(`select A,C,G,J,K,L where C='Blinkit'`);
+  const tgtTql  = encodeURIComponent(`select A,C,G,J,K,L where lower(C) contains 'blinkit'`);
 
   // ── CSV fetch URLs ──────────────────────────────────────────────────────────────
   const skuCsvUrl    = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=1200688139`;
@@ -1545,7 +1546,7 @@ function refreshData() {
                     .then(parseSkuCsv)
                     .catch(err => {
                       console.warn('SKU CSV fetch failed, falling back to GViz JSONP:', err.message);
-                      return gvizJsonp(`${BASE}&gid=1200688139&range=A:AH&headers=6&tq=${encodeURIComponent("select A,D,AH where A='Blinkit'")}`).then(j => {
+                      return gvizJsonp(`${BASE}&gid=1200688139&range=A:AH&headers=6&tq=${encodeURIComponent("select A,D,AH where lower(A) contains 'blinkit'")}`).then(j => {
                         const map = {};
                         j.table?.rows?.forEach(r => {
                           const raw = r.c?.[1]?.v; const proj = Number(r.c?.[2]?.v||0);
@@ -1567,7 +1568,22 @@ function refreshData() {
       if (nbRows > 0) {
         const r0 = nbJson.table.rows[0];
         console.log('newBase row[0]:', JSON.stringify(r0));
-      } else console.warn('newBase: 0 rows — check WHERE clause or GID');
+        // Hide any prior error banner
+        const eb = document.getElementById('data-error-banner');
+        if (eb) eb.style.display = 'none';
+      } else {
+        console.warn('newBase: 0 rows — check WHERE clause or GID. Channels seen:', [...channelsSeen]);
+        // Show error banner
+        let eb = document.getElementById('data-error-banner');
+        if (!eb) {
+          eb = document.createElement('div');
+          eb.id = 'data-error-banner';
+          eb.style.cssText = 'background:#2a0f0f;border:1px solid #f85149;border-radius:8px;padding:10px 16px;margin:12px 28px;font-size:11px;color:#f85149;display:flex;align-items:center;gap:8px';
+          document.querySelector('.main')?.prepend(eb);
+        }
+        eb.style.display = 'flex';
+        eb.innerHTML = `⚠️ <b>No sales data loaded</b> — GViz returned 0 rows. Channel values seen: <code style="background:#1a0808;padding:2px 6px;border-radius:3px">${[...channelsSeen].join(', ') || '(none)'}</code>. Open browser console for full diagnostics.`;
+      }
       if (tgtRows === 0) console.warn('aopTarget: 0 rows — check headers=3 or column refs');
       processAllData(nbJson, tgtJson, projByIdMap, fillRateData, searchData);
       btn.textContent = '⟳ Refresh from GSheet'; btn.style.opacity='1';
@@ -1589,7 +1605,7 @@ function refreshData() {
 //   AOP Target (GID 629606959, headers=3) — select A,C,G,J,K,L where C='Blinkit'
 //     0=child_SKU  1=Channel_name  2=item_id(SKU col)  3=unit_tgt  4=gmv_tgt  5=nr_tgt
 //
-//   SKU Level (GID 1200688139, headers=6) — select A,D,AH where A='Blinkit'
+//   SKU Level (GID 1200688139, headers=6) — select A,D,AH where lower(A) contains 'blinkit'
 //     0=Platform  1=Platform_SKU(item_id)  2=Projected_DRR
 //
 // LMTD definition (fully data-driven):
@@ -1617,13 +1633,14 @@ function processAllData(nbJson, tgtJson, projByIdMap, fillRateData, searchData) 
   }
 
   // Column map — select A,C,E,F,I,K,P,Q,U,Z  (10 columns, 0-indexed)
-  const COL = {date:0, iid:1, gmv:2, qty:3, brand:4, cat:5, prod:6, sku:7, sub:8, nr:9};
+  const COL = {date:0, channel:1, iid:2, gmv:3, qty:4, brand:5, cat:6, prod:7, sku:8, sub:9, nr:10};
 
   // ── 1. Find latestDate from actual data ──────────────────────────
   // Log unique brand values actually present (first 20 rows) for diagnosis
-  const brandsSeen = new Set();
-  nbJson.table.rows.slice(0,50).forEach(r => brandsSeen.add(vs(r, COL.brand)));
-  console.log('Brands seen in newBase col4 (first 50 rows):', [...brandsSeen]);
+  const brandsSeen = new Set(); const channelsSeen = new Set();
+  nbJson.table.rows.slice(0,50).forEach(r => { brandsSeen.add(vs(r, COL.brand)); channelsSeen.add(vs(r, COL.channel)); });
+  console.log('Channels in newBase (first 50 rows):', [...channelsSeen]);
+  console.log('Brands in newBase (first 50 rows):', [...brandsSeen]);
 
   let latestTs = 0;
   nbJson.table.rows.forEach(r => {

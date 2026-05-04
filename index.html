@@ -1535,9 +1535,7 @@ function refreshData() {
   //   L..O=11-14, P=15(product_name), Q=16(sku), R..T=17-19, U=20(subcat), V..Y=21-24, Z=25(net_rev)
   // Returns rows in COL order: {date,channel,iid,gmv,qty,brand,cat,prod,sku,sub,nr} (11 cols)
   function parseNewBaseCsv(text) {
-    const lines = text.replace(/
-/g,'').split('
-');
+    const lines = text.replace(/\r/g,'').split('\n');
     if (lines.length < 2) { console.warn('NewBase CSV: empty'); return {table:{rows:[]}}; }
 
     // Detect column positions from header row
@@ -1595,9 +1593,7 @@ function refreshData() {
   // Sheet has 3 header rows (headers=3). Data starts row 4.
   // Select A,C,G,J,K,L where C='Blinkit' → COL: {sku:0,channel:1,iid:2,unit_tgt:3,gmv_tgt:4,nr_tgt:5}
   function parseTargetCsv(text) {
-    const lines = text.replace(/
-/g,'').split('
-');
+    const lines = text.replace(/\r/g,'').split('\n');
     const rows = [];
     // Skip first 3 header rows; scan remaining for Blinkit rows
     // Col indices: A=0(child_SKU), C=2(channel), G=6(item_id), J=9(unit_tgt), K=10(gmv_tgt), L=11(nr_tgt)

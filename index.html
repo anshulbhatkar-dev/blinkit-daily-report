@@ -784,9 +784,7 @@ function buildEmailHTML() {
         <td colspan="9" style="background:${bc};padding:9px 12px">
           <table width="100%" style="border-collapse:collapse">
             <tr>
-              <td style="color:#fff;font-size:13px;font-weight:800">${brand}
-                <span style="font-size:10px;font-weight:600;opacity:.75;margin-left:6px">${fillPill(brandFill).replace('color:#276749','color:#fff').replace('color:#975a16','color:rgba(255,255,255,.9)').replace('color:#c53030','color:#ffb3b3')}</span>
-              </td>
+              <td style="color:#fff;font-size:13px;font-weight:800">${brand}</td>
               <td style="text-align:right;white-space:nowrap">
                 <span style="color:#fff;font-size:16px;font-weight:800">${fmtNr(aprNr)}</span>
                 <span style="color:rgba(255,255,255,.65);font-size:10px;margin-left:5px">DRR NR MTD</span>
@@ -985,7 +983,7 @@ function showToast(msg, color) {
 }
 
 async function gmailCreateDraftWithToken(accessToken) {
-  const TO  = 'sudarshan.balaraman@mosaicwellness.in,vaibhav.joneja@mosaicwellness.in,revant@mosaicwellness.in,vipul.jadhav@mosaicwellness.in';
+  const TO  = 'sudarshan.balaraman@mosaicwellness.in,vaibhav.joneja@mosaicwellness.in,revant@mosaicwellness.in,vipul.jadhav@mosaicwellness.in,mohnish@mosaicwellness.in,geet@mosaicwellness.in';
   const CC  = 'anshul.bhatkar@mosaicwellness.in';
   const rawSubj = document.getElementById('email-subject-preview').textContent || '📦 Blinkit Daily Update';
   // RFC 2047 encoded-word: prevents UTF-8 garbling in email clients

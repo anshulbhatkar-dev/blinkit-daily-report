@@ -1622,45 +1622,76 @@ function refreshData() {
     return {table:{rows}};
   }
 
-  // ── GViz JSONP helper with timeout ──────────────────────────────────────────────
-  const SID2 = SID;  // alias for readability
-  const BASE = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT7ccIB8eFnZF_FYtxIC_bXhVL28bI9JjEqNE2kwtFKbvf-degtOeEPPPxFSyhgWj8TPfSKaDwl14Kv/gviz/tq?tqx=out:json';
+  // ── GViz CSV: published sheet + server-side TQL filter, plain CSV output ───────────
+  // tqx=out:csv applies WHERE clause server-side and returns plain CSV (no CORS/JSONP issues)
+  const GVIZ_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT7ccIB8eFnZF_FYtxIC_bXhVL28bI9JjEqNE2kwtFKbvf-degtOeEPPPxFSyhgWj8TPfSKaDwl14Kv/gviz/tq';
+  const nbTql  = encodeURIComponent("select A,B,C,E,F,I,K,P,Q,U,Z where lower(B) contains 'blinkit' order by A");
+  const tgtTql = encodeURIComponent("select A,C,G,J,K,L where lower(C) contains 'blinkit'");
+  const nbGvizUrl  = GVIZ_URL + '?tqx=out:csv&gid=1168753412&tq=' + nbTql;
+  const tgtGvizUrl = GVIZ_URL + '?tqx=out:csv&gid=629606959&headers=3&tq=' + tgtTql;
 
-  // GViz query — select A,B,C,E,F,I,K,P,Q,U,Z  (B=channel included so we can inspect it)
-  // Using lower(B) contains 'blinkit' for case-insensitive match
-  const nbCols  = 'A,B,C,E,F,I,K,P,Q,U,Z';
-  const nbWhere = `lower(B) contains 'blinkit'`;
-  const nbTql   = encodeURIComponent(`select ${nbCols} where ${nbWhere} order by A`);
-  const tgtTql  = encodeURIComponent(`select A,C,G,J,K,L where lower(C) contains 'blinkit'`);
-  const nbUrl   = `${BASE}&gid=1168753412&tq=${nbTql}`;
-  const tgtUrl  = `${BASE}&gid=629606959&headers=3&tq=${tgtTql}`;
+  // GViz CSV parser — SELECT order: A,B,C,E,F,I,K,P,Q,U,Z → col 0..10 → matches COL mapping
+  function parseGvizNbCsv(text) {
+    const lines = text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
+    console.log('GViz NB CSV:', lines.length, 'lines. Row0:', lines[0]?.substring(0,150));
+    if (lines.length < 2) { console.warn('GViz NB: empty'); return {table:{rows:[]}}; }
+    const sysY = new Date().getFullYear();
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const f = splitCsvRow(lines[i]);
+      if (!f || f.length < 9) continue;
+      const g = idx => (f[idx]||'').replace(/^"|"$/g,'').trim();
+      const n = idx => { const s=g(idx); return parseFloat(s.replace(/,/g,''))||0; };
+      const ds = g(0);
+      let dateObj = null;
+      if (ds.startsWith('Date(')) {
+        const m = ds.match(/Date\((\d+),(\d+),(\d+)\)/);
+        if (m) dateObj = new Date(+m[1], +m[2], +m[3]);
+      } else { dateObj = new Date(ds); }
+      if (!dateObj || isNaN(dateObj.getTime())) continue;
+      if (dateObj.getFullYear() !== sysY) continue;
+      rows.push({c:[
+        {v:'Date('+dateObj.getFullYear()+','+dateObj.getMonth()+','+dateObj.getDate()+')'},
+        {v:g(1)},{v:g(2)},{v:n(3)},{v:n(4)},{v:g(5)},{v:g(6)},{v:g(7)},{v:g(8)},{v:g(9)},{v:n(10)}
+      ]});
+    }
+    console.log('GViz NB: parsed ' + rows.length + ' rows for ' + sysY);
+    return {table:{rows}};
+  }
 
-  // CSV with AbortController timeout — for smaller auxiliary sheets
+  function parseGvizTgtCsv(text) {
+    const lines = text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
+    console.log('GViz Tgt CSV:', lines.length, 'lines');
+    if (lines.length < 2) { console.warn('GViz Tgt: empty'); return {table:{rows:[]}}; }
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const f = splitCsvRow(lines[i]);
+      if (!f || f.length < 5) continue;
+      const g = idx => (f[idx]||'').replace(/^"|"$/g,'').trim();
+      const n = idx => { const s=g(idx); return parseFloat(s.replace(/,/g,''))||0; };
+      rows.push({c:[{v:g(0)},{v:g(1)},{v:g(2)},{v:n(3)},{v:n(4)},{v:n(5)}]});
+    }
+    console.log('GViz Tgt: parsed ' + rows.length + ' rows');
+    return {table:{rows}};
+  }
+
+  // fetchT: fetch with AbortController timeout (no credentials — published sheet)
   const fetchT = (url, ms, label) => {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), ms);
-    return fetch(url, {signal: ctrl.signal, credentials: 'include'})
+    return fetch(url, {signal: ctrl.signal})
       .finally(() => clearTimeout(timer))
-      .catch(err => { throw new Error(`${label}: ${err.name==='AbortError'?'timeout':err.message}`); });
+      .catch(err => { throw new Error(label + ': ' + (err.name==='AbortError'?'timeout':err.message)); });
   };
 
-  // GViz with CSV fallback — used for main data sources
-  const gvizOrCsv = (gvizUrl, csvUrl, ms, parseFn, label) =>
-    gvizJsonp(gvizUrl).catch(err => {
-      console.warn(`${label} GViz failed (${err.message}), trying CSV fallback`);
-      return fetchT(csvUrl, ms, label)
-        .then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
-        .then(parseFn)
-        .catch(e2 => { console.error(`${label} CSV also failed:`, e2.message); return {table:{rows:[]},_err:e2.message}; });
-    });
-
   Promise.all([
-    gvizOrCsv(nbUrl,  nbCsvUrl,  25000, parseNewBaseCsv, 'NewBase'),
-    gvizOrCsv(tgtUrl, tgtCsvUrl, 15000, parseTargetCsv,  'Target'),
-    fetchT(skuCsvUrl,    15000, 'SKU'   ).then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); }).then(parseSkuCsv    ).catch(err=>{console.warn('SKU:',    err.message);return {};}),
-    fetchT(fillCsvUrl,   15000, 'Fill'  ).then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); }).then(parseFillRateCsv).catch(err=>{console.warn('Fill:',   err.message);return {};}),
-    fetchT(searchCsvUrl, 15000, 'Search').then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); }).then(parseSearchCsv ).catch(err=>{console.warn('Search:', err.message);return {};})
-  ]).then(([nbJson, tgtJson, projByIdMap, fillRateData, searchData]) => {
+    fetchT(nbGvizUrl,  20000,'NewBase').then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text();}).then(parseGvizNbCsv ).catch(err=>{console.warn('NewBase:',err.message);return {table:{rows:[]},_err:err.message};}),
+    fetchT(tgtGvizUrl, 15000,'Target' ).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text();}).then(parseGvizTgtCsv).catch(err=>{console.warn('Target:' ,err.message);return {table:{rows:[]}};}),
+    fetchT(skuCsvUrl,  15000,'SKU'    ).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text();}).then(parseSkuCsv    ).catch(err=>{console.warn('SKU:',    err.message);return {};}),
+    fetchT(fillCsvUrl, 15000,'Fill'   ).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text();}).then(parseFillRateCsv).catch(err=>{console.warn('Fill:',   err.message);return {};}),
+    fetchT(searchCsvUrl,15000,'Search').then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text();}).then(parseSearchCsv ).catch(err=>{console.warn('Search:',  err.message);return {};})
+  ])
+    ]).then(([nbJson, tgtJson, projByIdMap, fillRateData, searchData]) => {
       const nbRows  = nbJson.table?.rows?.length  || 0;
       const tgtRows = tgtJson.table?.rows?.length || 0;
       console.log('GViz rows — newBase:', nbRows, '| aopTarget:', tgtRows, '| skuProjections:', Object.keys(projByIdMap).length);

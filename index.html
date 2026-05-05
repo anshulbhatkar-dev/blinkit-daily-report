@@ -1371,11 +1371,11 @@ function refreshData() {
   const sysY = sys.getFullYear();
 
   // ── CSV fetch URLs (all data via CSV export — works with Google Workspace auth) ──
-  const nbCsvUrl     = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=1168753412&range=A:Z`;
-  const tgtCsvUrl    = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=629606959`;
-  const skuCsvUrl    = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=1200688139`;
-  const fillCsvUrl   = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=561583355`;
-  const searchCsvUrl = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=1473078428`;
+  const nbCsvUrl     = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT7ccIB8eFnZF_FYtxIC_bXhVL28bI9JjEqNE2kwtFKbvf-degtOeEPPPxFSyhgWj8TPfSKaDwl14Kv/pub?gid=1168753412&single=true&output=csv';
+  const tgtCsvUrl    = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT7ccIB8eFnZF_FYtxIC_bXhVL28bI9JjEqNE2kwtFKbvf-degtOeEPPPxFSyhgWj8TPfSKaDwl14Kv/pub?gid=629606959&single=true&output=csv';
+  const skuCsvUrl    = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT7ccIB8eFnZF_FYtxIC_bXhVL28bI9JjEqNE2kwtFKbvf-degtOeEPPPxFSyhgWj8TPfSKaDwl14Kv/pub?gid=1200688139&single=true&output=csv';
+  const fillCsvUrl   = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT7ccIB8eFnZF_FYtxIC_bXhVL28bI9JjEqNE2kwtFKbvf-degtOeEPPPxFSyhgWj8TPfSKaDwl14Kv/pub?gid=561583355&single=true&output=csv';
+  const searchCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT7ccIB8eFnZF_FYtxIC_bXhVL28bI9JjEqNE2kwtFKbvf-degtOeEPPPxFSyhgWj8TPfSKaDwl14Kv/pub?gid=1473078428&single=true&output=csv';
 
   // ── Shared CSV row splitter ─────────────────────────────────────────────────────────
   function splitCsvRow(row) {
@@ -1536,6 +1536,8 @@ function refreshData() {
   // Returns rows in COL order: {date,channel,iid,gmv,qty,brand,cat,prod,sku,sub,nr} (11 cols)
   function parseNewBaseCsv(text) {
     const lines = text.replace(/\r/g,'').split('\n');
+    console.log('NewBase CSV: ' + lines.length + ' lines. Row0:', lines[0]?.substring(0,200));
+    console.log('NewBase CSV: Row1 sample:', lines[1]?.substring(0,200));
     if (lines.length < 2) { console.warn('NewBase CSV: empty'); return {table:{rows:[]}}; }
 
     // Detect column positions from header row
@@ -1622,7 +1624,7 @@ function refreshData() {
 
   // ── GViz JSONP helper with timeout ──────────────────────────────────────────────
   const SID2 = SID;  // alias for readability
-  const BASE = `https://docs.google.com/spreadsheets/d/${SID2}/gviz/tq?tqx=out:json`;
+  const BASE = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT7ccIB8eFnZF_FYtxIC_bXhVL28bI9JjEqNE2kwtFKbvf-degtOeEPPPxFSyhgWj8TPfSKaDwl14Kv/gviz/tq?tqx=out:json';
 
   // GViz query — select A,B,C,E,F,I,K,P,Q,U,Z  (B=channel included so we can inspect it)
   // Using lower(B) contains 'blinkit' for case-insensitive match

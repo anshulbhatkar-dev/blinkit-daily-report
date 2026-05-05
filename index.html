@@ -1373,9 +1373,9 @@ function refreshData() {
   // ── CSV fetch URLs (all data via CSV export — works with Google Workspace auth) ──
   const nbCsvUrl     = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT7ccIB8eFnZF_FYtxIC_bXhVL28bI9JjEqNE2kwtFKbvf-degtOeEPPPxFSyhgWj8TPfSKaDwl14Kv/pub?gid=1168753412&single=true&output=csv';
   const tgtCsvUrl    = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT7ccIB8eFnZF_FYtxIC_bXhVL28bI9JjEqNE2kwtFKbvf-degtOeEPPPxFSyhgWj8TPfSKaDwl14Kv/pub?gid=629606959&single=true&output=csv';
-  const skuCsvUrl    = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT7ccIB8eFnZF_FYtxIC_bXhVL28bI9JjEqNE2kwtFKbvf-degtOeEPPPxFSyhgWj8TPfSKaDwl14Kv/pub?gid=1200688139&single=true&output=csv';
-  const fillCsvUrl   = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT7ccIB8eFnZF_FYtxIC_bXhVL28bI9JjEqNE2kwtFKbvf-degtOeEPPPxFSyhgWj8TPfSKaDwl14Kv/pub?gid=561583355&single=true&output=csv';
-  const searchCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT7ccIB8eFnZF_FYtxIC_bXhVL28bI9JjEqNE2kwtFKbvf-degtOeEPPPxFSyhgWj8TPfSKaDwl14Kv/pub?gid=1473078428&single=true&output=csv';
+  const skuCsvUrl    = 'https://docs.google.com/spreadsheets/d/1Y64_-5XsOLvxZXNE5jRom6turqnXmjUdsJWZdtm-73Y/export?format=csv&gid=1200688139';
+  const fillCsvUrl   = 'https://docs.google.com/spreadsheets/d/1Y64_-5XsOLvxZXNE5jRom6turqnXmjUdsJWZdtm-73Y/export?format=csv&gid=561583355';
+  const searchCsvUrl = 'https://docs.google.com/spreadsheets/d/1Y64_-5XsOLvxZXNE5jRom6turqnXmjUdsJWZdtm-73Y/export?format=csv&gid=1473078428';
 
   // ── Shared CSV row splitter ─────────────────────────────────────────────────────────
   function splitCsvRow(row) {
@@ -1397,8 +1397,8 @@ function refreshData() {
     for (let i = 6; i < lines.length; i++) {
       const f = splitCsvRow(lines[i]);
       if (!f || f.length < 34) continue;
-      const platform = f[0].replace(/^"|"$/g,'');
-      if (platform !== 'Blinkit') continue;
+      const platform = f[0].replace(/^"|"$/g,'').trim();
+      if (!platform.toLowerCase().includes('blinkit')) continue;
       const rawId  = f[3].replace(/^"|"$/g,'');
       const rawPrj = f[33].replace(/^"|"$/g,'');
       const numId  = Number(String(rawId).replace(/[^0-9.]/g,''));

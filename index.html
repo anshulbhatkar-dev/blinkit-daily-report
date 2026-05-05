@@ -1690,8 +1690,7 @@ function refreshData() {
     fetchT(skuCsvUrl,  15000,'SKU'    ).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text();}).then(parseSkuCsv    ).catch(err=>{console.warn('SKU:',    err.message);return {};}),
     fetchT(fillCsvUrl, 15000,'Fill'   ).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text();}).then(parseFillRateCsv).catch(err=>{console.warn('Fill:',   err.message);return {};}),
     fetchT(searchCsvUrl,15000,'Search').then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text();}).then(parseSearchCsv ).catch(err=>{console.warn('Search:',  err.message);return {};})
-  ])
-    ]).then(([nbJson, tgtJson, projByIdMap, fillRateData, searchData]) => {
+  ]).then(([nbJson, tgtJson, projByIdMap, fillRateData, searchData]) => {
       const nbRows  = nbJson.table?.rows?.length  || 0;
       const tgtRows = tgtJson.table?.rows?.length || 0;
       console.log('GViz rows — newBase:', nbRows, '| aopTarget:', tgtRows, '| skuProjections:', Object.keys(projByIdMap).length);

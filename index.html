@@ -1667,23 +1667,23 @@ function refreshData() {
     });
   }
 
-  // NewBase: retry once on timeout — first daily call is cold-cache (Apps Script processes 15k rows).
-  // On retry the cache is hot and returns instantly.
-  function fetchNewBase() {
-    return fetchJsonp(nbUrl, 90000, 'NewBase').then(parseNewBaseCsv).catch(err => {
-      console.warn('NewBase first attempt:', err.message, '— retrying in 3s (cache should be warm)');
-      return new Promise(res => setTimeout(res, 3000))
-        .then(() => fetchJsonp(nbUrl, 30000, 'NewBase-retry'))
-        .then(parseNewBaseCsv)
-        .catch(err2 => { console.warn('NewBase retry failed:', err2.message); return {table:{rows:[]},_err:err2.message}; });
+  // Generic fetch-with-retry: first call may be cold-cache (Apps Script reads full sheet).
+  // After timeout, Apps Script continues running and populates cache — retry hits it instantly.
+  function fetchWithRetry(url, firstMs, retryMs, label, parser, fallback) {
+    return fetchJsonp(url, firstMs, label).then(parser).catch(err => {
+      console.warn(label + ' first attempt:', err.message, '— retrying in 5s (cache should be warm)');
+      return new Promise(res => setTimeout(res, 5000))
+        .then(() => fetchJsonp(url, retryMs, label + '-retry'))
+        .then(parser)
+        .catch(err2 => { console.warn(label + ' retry failed:', err2.message); return fallback; });
     });
   }
 
   Promise.all([
-    fetchNewBase(),
+    fetchWithRetry(nbUrl,     90000, 30000, 'NewBase', parseNewBaseCsv,  {table:{rows:[]},_err:'timeout'}),
     fetchJsonp(tgtUrl,    20000,'Target' ).then(parseTargetCsv  ).catch(err=>{console.warn('Target:' ,err.message);return {table:{rows:[]}};}),
     fetchJsonp(skuUrl,    20000,'SKU'    ).then(parseSkuCsv     ).catch(err=>{console.warn('SKU:',    err.message);return {};}),
-    fetchJsonp(fillUrl,   20000,'Fill'   ).then(parseFillRateCsv).catch(err=>{console.warn('Fill:',   err.message);return {};}),
+    fetchWithRetry(fillUrl,   60000, 30000, 'Fill',    parseFillRateCsv, {}),
     fetchJsonp(searchUrl, 20000,'Search' ).then(parseSearchCsv  ).catch(err=>{console.warn('Search:',  err.message);return {};})
   ]).then(([nbJson, tgtJson, projByIdMap, fillRateData, searchData]) => {
       const nbRows  = nbJson.table?.rows?.length  || 0;

@@ -484,7 +484,13 @@ function buildRows(metric, tbodyId) {
           const pProj=gProj(prod,metric);
           const pTgt = prod.tgt ? gV(prod.tgt, metric) : 0;
           const pAch = pProj || pApr;
-          const prodSkuFill = (() => { const skus=(DATA.fill_rate||{})[brand]?.[cat]?.skus||[]; const s=skus.find(x=>x.name===prod.name); return s?s.fillPct:null; })();
+          const prodSkuFill = (() => {
+            const skus = (DATA.fill_rate||{})[brand]?.[cat]?.skus || [];
+            // Match by item_id (reliable) then fall back to exact name match
+            const s = skus.find(x => x.item_id && x.item_id === String(prod.item_id))
+                   || skus.find(x => x.name === prod.name);
+            return s ? s.fillPct : null;
+          })();
           tbody.innerHTML += `<tr class="row-prod prod-row sub-${sid}">
             <td>${prod.name}</td>
             <td>${fL(pMar,metric)}</td><td>${fL(pLmtd,metric)}</td><td>${fL(pApr,metric)}</td>
@@ -748,7 +754,7 @@ function buildEmailHTML() {
         const pS = 'padding:5px 8px;text-align:right;font-size:11px;';
         return `
         <tr style="border-bottom:1px solid #f0f4f8">
-          <td style="padding:5px 8px 5px 18px;font-size:11px;font-weight:700;color:#2d3748" colspan="2">${cat}</td>
+          <td style="padding:5px 8px 5px 18px;font-size:11px;font-weight:700;color:#2d3748">${cat}</td>
           <td style="${pS}font-weight:800;color:#1a202c">${fmtNr(cAprNr)}</td>
           <td style="${pS}color:#4a5568">${fmtNr(cL7Nr)}</td>
           <td style="${pS}">${pillChg(cNrWow)}</td>
@@ -759,7 +765,7 @@ function buildEmailHTML() {
           <td style="${pS}">${fillPill(catFill)}</td>
         </tr>
         <tr style="border-bottom:2px solid #edf2f7">
-          <td style="padding:3px 8px 6px 18px;font-size:10px;color:#4a5568;font-weight:700" colspan="2">↳ Units</td>
+          <td style="padding:3px 8px 6px 18px;font-size:10px;color:#4a5568;font-weight:700">↳ Units</td>
           <td style="${pS}font-weight:800;color:#2d3748">${fmtQty(cAprQty)}</td>
           <td style="${pS}color:#4a5568">${fmtQty(cL7Qty)}</td>
           <td style="${pS}">${pillChg(cQtyWow)}</td>
@@ -775,7 +781,7 @@ function buildEmailHTML() {
     <table width="100%" style="border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:14px;font-family:'Helvetica Neue',Arial,sans-serif">
       <!-- Brand header -->
       <tr>
-        <td colspan="10" style="background:${bc};padding:9px 12px">
+        <td colspan="9" style="background:${bc};padding:9px 12px">
           <table width="100%" style="border-collapse:collapse">
             <tr>
               <td style="color:#fff;font-size:13px;font-weight:800">${brand}
@@ -793,7 +799,7 @@ function buildEmailHTML() {
       </tr>
       <!-- Achievement bar -->
       <tr>
-        <td colspan="10" style="padding:6px 12px 8px;background:#fff;border-bottom:1px solid #edf2f7">
+        <td colspan="9" style="padding:6px 12px 8px;background:#fff;border-bottom:1px solid #edf2f7">
           <table width="100%" style="border-collapse:collapse;margin-bottom:2px">
             <tr>
               <td style="font-size:9px;color:#a0aec0">0%</td>
@@ -809,11 +815,11 @@ function buildEmailHTML() {
           </table>
         </td>
       </tr>
-      <!-- Column headers: Metric | % Biz | MTD | L7D | WoW % | Forecast | Target | Achievement | Growth | L10D Fill -->
-      <tr>${THL('Metric')}${TH('% Biz')}${TH(cMon+' MTD')}${TH('L7D DRR')}${TH('WoW %')}${TH('Forecast','#90cdf4')}${TH('Target','#fbd38d')}${TH('Achievement')}${TH('Growth')}${TH('L10D Fill')}</tr>
+      <!-- Column headers: Metric | MTD | L7D | WoW % | Forecast | Target | Achievement | Growth | L10D Fill -->
+      <tr>${THL('Metric')}${TH(cMon+' MTD')}${TH('L7D DRR')}${TH('WoW %')}${TH('Forecast','#90cdf4')}${TH('Target','#fbd38d')}${TH('Achievement')}${TH('Growth')}${TH('L10D Fill')}</tr>
       <!-- NR row -->
       <tr style="border-bottom:1px solid #f0f4f8">
-        <td style="padding:9px 8px;font-size:11px;font-weight:800;color:#4a5568;letter-spacing:.2px" colspan="2">DRR Net Revenue</td>
+        <td style="padding:9px 8px;font-size:11px;font-weight:800;color:#4a5568;letter-spacing:.2px">DRR Net Revenue</td>
         <td style="padding:9px 8px;text-align:right;font-size:14px;font-weight:800;color:#1a202c">${fmtNr(aprNr)}</td>
         <td style="padding:9px 8px;text-align:right;font-size:12px;color:#4a5568">${fmtNr(l7Nr)}</td>
         <td style="padding:9px 8px;text-align:right">${pillChg(nrWow)}</td>
@@ -825,7 +831,7 @@ function buildEmailHTML() {
       </tr>
       <!-- Units row -->
       <tr style="border-bottom:2px solid #e2e8f0">
-        <td style="padding:9px 8px;font-size:11px;font-weight:800;color:#2d3748;letter-spacing:.2px" colspan="2">DRR Units</td>
+        <td style="padding:9px 8px;font-size:11px;font-weight:800;color:#2d3748;letter-spacing:.2px">DRR Units</td>
         <td style="padding:9px 8px;text-align:right;font-size:14px;font-weight:800;color:#2d3748">${fmtQty(aprQty)}</td>
         <td style="padding:9px 8px;text-align:right;font-size:12px;color:#4a5568">${fmtQty(l7Qty)}</td>
         <td style="padding:9px 8px;text-align:right">${pillChg(qtyWow)}</td>
@@ -836,7 +842,7 @@ function buildEmailHTML() {
         <td style="padding:9px 8px;text-align:right">${fillPill(brandFill)}</td>
       </tr>
       <!-- Category breakdown -->
-      <tr><td colspan="10" style="padding:4px 8px;font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.6px;background:#fafbfc;border-bottom:1px solid #edf2f7">Category Breakdown</td></tr>
+      <tr><td colspan="9" style="padding:4px 8px;font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.6px;background:#fafbfc;border-bottom:1px solid #edf2f7">Category Breakdown</td></tr>
       ${catRows}
     </table>`;
   }
@@ -947,12 +953,6 @@ function buildEmailHTML() {
     ${brands.map(b => makeBrandBlock(b)).join('')}
   </td></tr>
 
-  <!-- SEARCH TRENDS -->
-  <tr><td style="padding:0 16px 14px">
-    <div style="font-size:10px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.7px;padding:8px 0 6px;border-top:1px solid #edf2f7">🔍 Search Trends — Blinkit</div>
-    ${makeSearchTable()}
-  </td></tr>
-
   <!-- FOOTER -->
   <tr><td style="background:#f7fafc;padding:10px 18px;text-align:center;font-size:10px;color:#a0aec0;border-top:1px solid #e2e8f0">
     Mosaic Wellness · Blinkit · ${new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})}
@@ -985,8 +985,8 @@ function showToast(msg, color) {
 }
 
 async function gmailCreateDraftWithToken(accessToken) {
-  const TO  = 'anshul.bhatkar@mosaicwellness.in';
-  const CC  = 'sudarshan.balaraman@mosaicwellness.in,vaibhav.joneja@mosaicwellness.in,revant@mosaicwellness.in,vipul.jadhav@mosaicwellness.in';
+  const TO  = 'sudarshan.balaraman@mosaicwellness.in,vaibhav.joneja@mosaicwellness.in,revant@mosaicwellness.in,vipul.jadhav@mosaicwellness.in';
+  const CC  = 'anshul.bhatkar@mosaicwellness.in';
   const rawSubj = document.getElementById('email-subject-preview').textContent || '📦 Blinkit Daily Update';
   // RFC 2047 encoded-word: prevents UTF-8 garbling in email clients
   const encSubj = `=?UTF-8?B?${btoa(unescape(encodeURIComponent(rawSubj)))}?=`;
@@ -1420,7 +1420,7 @@ function refreshData() {
   // Weighted fill % = sum(Qty Sent) / sum(Qty Raised) per brand x category
   function parseFillRateCsv(text) {
     const lines = text.replace(/\r/g,'').split('\n');
-    let hdrIdx=-1, idxFill=-1, idxBrand=-1, idxCat=-1, idxQtyR=-1, idxQtyS=-1, idxName=-1;
+    let hdrIdx=-1, idxFill=-1, idxBrand=-1, idxCat=-1, idxQtyR=-1, idxQtyS=-1, idxName=-1, idxItemId=-1;
 
     for (let i = 0; i < lines.length; i++) {
       const f   = splitCsvRow(lines[i]);
@@ -1428,12 +1428,14 @@ function refreshData() {
       const fc  = low.findIndex(x => x.includes('l10d') && x.includes('fill'));
       if (fc >= 0) {
         hdrIdx = i; idxFill = fc;
+        idxItemId= low.findIndex(x => x.includes('item') && (x.includes('id') || x.includes('_id')));
         idxName  = low.findIndex(x => x === 'name' || x.includes('product name'));
         idxBrand = low.findIndex(x => x === 'brand');
         idxCat   = low.findIndex(x => x.includes('update cat') || (x.includes('categor') && !x.includes('gc')));
         idxQtyR  = low.findIndex(x => x.includes('qty') && x.includes('raised'));
         idxQtyS  = low.findIndex((x,ci) => ci > idxQtyR && x.includes('qty') && (x.includes('sent') || x.includes('fulfi')));
         if (idxQtyS === -1 && idxQtyR >= 0) idxQtyS = idxQtyR + 1;
+        console.log('Fill hdr cols — itemId:'+idxItemId+' name:'+idxName+' fill:'+idxFill+' brand:'+idxBrand+' cat:'+idxCat+' qtyR:'+idxQtyR+' qtyS:'+idxQtyS);
         break;
       }
     }
@@ -1446,6 +1448,7 @@ function refreshData() {
       const brand   = idxBrand >= 0 ? f[idxBrand].replace(/^"|"$/g,'').trim() : '';
       const cat     = idxCat   >= 0 ? f[idxCat].replace(/^"|"$/g,'').trim()   : '';
       const name    = idxName  >= 0 ? f[idxName].replace(/^"|"$/g,'').trim()  : '';
+      const itemId  = idxItemId>= 0 ? f[idxItemId].replace(/^"|"$/g,'').trim(): '';
       const fillStr = f[idxFill].replace(/^"|"$/g,'').trim();
       const qtyRStr = idxQtyR >= 0 ? f[idxQtyR].replace(/^"|"$/g,'').trim() : '';
       const qtySStr = idxQtyS >= 0 ? f[idxQtyS].replace(/^"|"$/g,'').trim() : '';
@@ -1454,11 +1457,15 @@ function refreshData() {
       const qtyR = parseFloat(qtyRStr.replace(/,/g,'')) || 0;
       const qtyS = parseFloat(qtySStr.replace(/,/g,'')) || 0;
       if (qtyR === 0) continue;
+      // Apps Script getValues() returns percentage cells as decimals (0.655 = 65.5%).
+      // Detect decimal form (0 < v <= 1) and multiply by 100 to normalise to pct.
+      const rawFill = parseFloat(fillStr.replace(/[%,]/g,''));
+      const fillPct = !isNaN(rawFill) ? (rawFill > 0 && rawFill <= 1 ? rawFill * 100 : rawFill) : 0;
       if (!agg[brand]) agg[brand] = {};
       if (!agg[brand][cat]) agg[brand][cat] = {qtyR:0,qtyS:0,skus:[]};
       agg[brand][cat].qtyR += qtyR;
       agg[brand][cat].qtyS += qtyS;
-      agg[brand][cat].skus.push({name, fillPct:parseFloat(fillStr.replace('%',''))||0, qtyR});
+      agg[brand][cat].skus.push({name, item_id: String(Math.round(Number(itemId)||0)||''), fillPct, qtyR});
     }
     const result = {};
     for (const [brand, cats] of Object.entries(agg)) {
@@ -1628,27 +1635,52 @@ function refreshData() {
   }
 
 
-  // JSONP loader — injects <script> tag, Google session cookies included automatically
+  // JSONP loader — script tag injection, Google session cookies auto-included
   function fetchJsonp(url, ms, label) {
     return new Promise((resolve, reject) => {
       const cb = '_gs_' + Math.random().toString(36).slice(2);
+      let done = false;
       const timer = setTimeout(() => {
-        delete window[cb]; el.remove();
+        if (done) return;
+        done = true;
+        // Keep window[cb] alive so late responses don't throw ReferenceError
+        window[cb] = () => {};
         reject(new Error(label + ': timeout'));
       }, ms);
       window[cb] = text => {
-        clearTimeout(timer); delete window[cb]; el.remove();
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        delete window[cb];
         resolve(text);
       };
       const el = document.createElement('script');
-      el.onerror = () => { clearTimeout(timer); delete window[cb]; reject(new Error(label + ': load error')); };
+      el.onerror = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        delete window[cb];
+        reject(new Error(label + ': load error'));
+      };
       el.src = url + '&callback=' + cb;
       document.head.appendChild(el);
     });
   }
 
+  // NewBase: retry once on timeout — first daily call is cold-cache (Apps Script processes 15k rows).
+  // On retry the cache is hot and returns instantly.
+  function fetchNewBase() {
+    return fetchJsonp(nbUrl, 90000, 'NewBase').then(parseNewBaseCsv).catch(err => {
+      console.warn('NewBase first attempt:', err.message, '— retrying in 3s (cache should be warm)');
+      return new Promise(res => setTimeout(res, 3000))
+        .then(() => fetchJsonp(nbUrl, 30000, 'NewBase-retry'))
+        .then(parseNewBaseCsv)
+        .catch(err2 => { console.warn('NewBase retry failed:', err2.message); return {table:{rows:[]},_err:err2.message}; });
+    });
+  }
+
   Promise.all([
-    fetchJsonp(nbUrl,     30000,'NewBase').then(parseNewBaseCsv ).catch(err=>{console.warn('NewBase:',err.message);return {table:{rows:[]},_err:err.message};}),
+    fetchNewBase(),
     fetchJsonp(tgtUrl,    20000,'Target' ).then(parseTargetCsv  ).catch(err=>{console.warn('Target:' ,err.message);return {table:{rows:[]}};}),
     fetchJsonp(skuUrl,    20000,'SKU'    ).then(parseSkuCsv     ).catch(err=>{console.warn('SKU:',    err.message);return {};}),
     fetchJsonp(fillUrl,   20000,'Fill'   ).then(parseFillRateCsv).catch(err=>{console.warn('Fill:',   err.message);return {};}),

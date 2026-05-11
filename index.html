@@ -358,7 +358,9 @@ function fPct(a, b) {
 function fAch(a, t) {
   if (!t) return '<span style="color:#6e7681">–</span>';
   const p = a / t * 100;
-  return `<span class="${p>=100?'ach-g':p>=90?'ach-a':'ach-r'}">${p.toFixed(1)}%</span>`;
+  const cls = p > 102 ? 'ach-g' : p >= 98 ? 'ach-g' : p >= 90 ? 'ach-a' : 'ach-r';
+  const pfx = p > 102 ? '🚀 ' : '';
+  return `<span class="${cls}">${pfx}${p.toFixed(1)}%</span>`;
 }
 function gV(obj, m) { return obj ? (obj[m] || 0) : 0; }
 function gProj(obj, m) {
@@ -416,8 +418,8 @@ function renderCards() {
 function fillTd(pct, pad) {
   const p = pad || '7px 10px';
   if (pct === null || pct === undefined) return `<td style="padding:${p};text-align:right;color:#6e7681">—</td>`;
-  const bg = pct >= 90 ? '#0f2a1a' : pct >= 85 ? '#2a1e00' : '#2a0f0f';
-  const fg = pct >= 90 ? '#3fb950' : pct >= 85 ? '#d29922' : '#f85149';
+  const bg = pct > 102 ? '#0f2a1a' : pct >= 98 ? '#0f2a1a' : pct >= 90 ? '#2a1e00' : '#2a0f0f';
+  const fg = pct > 102 ? '#3fb950' : pct >= 98 ? '#3fb950' : pct >= 90 ? '#d29922' : '#f85149';
   return `<td style="padding:${p};text-align:right;background:${bg};color:${fg};font-weight:700;font-size:10px">${pct.toFixed(1)}%</td>`;
 }
 
@@ -662,16 +664,17 @@ function buildEmailHTML() {
     return ((curr-prev)/prev*100).toFixed(1);
   };
   const fmtAch = (proj, tgt) => (tgt>0 && proj) ? (proj/tgt*100).toFixed(1) : null;
-  const colAch  = p => p===null?'#718096':parseFloat(p)>=90?'#276749':'#c53030';
+  const colAch  = p => p===null?'#718096':parseFloat(p)>=98?'#276749':parseFloat(p)>=90?'#975a16':'#c53030';
 
   // ── Pill renderers ──────────────────��──────────────────────────────
   const pillAch = p => {
     if (p === null) return '<span style="color:#a0aec0;font-size:12px">–</span>';
     const n = parseFloat(p);
     const base = 'padding:3px 8px;border-radius:10px;font-size:11px;font-weight:800;white-space:nowrap;display:inline-block';
-    if (n >= 105) return `<span style="${base};background:#c6f6d5;color:#276749">🚀 ${p}%</span>`;
-    if (n >= 90)  return `<span style="${base};background:#c6f6d5;color:#276749">${p}%</span>`;
-    return             `<span style="${base};background:#fed7d7;color:#c53030">⚠️ ${p}%</span>`;
+    if (n > 102) return `<span style="${base};background:#c6f6d5;color:#276749">🚀 ${p}%</span>`;
+    if (n >= 98) return `<span style="${base};background:#c6f6d5;color:#276749">${p}%</span>`;
+    if (n >= 90) return `<span style="${base};background:#fefcbf;color:#975a16">${p}%</span>`;
+    return            `<span style="${base};background:#fed7d7;color:#c53030">⚠️ ${p}%</span>`;
   };
   const pillChg = p => {
     if (p === null) return '<span style="color:#a0aec0;font-size:12px">–</span>';
@@ -687,8 +690,9 @@ function buildEmailHTML() {
     if (pct === null || pct === undefined) return '<span style="color:#a0aec0;font-size:11px">–</span>';
     const n = parseFloat(pct), s = n.toFixed(0)+'%';
     const base = 'padding:2px 7px;border-radius:8px;font-size:11px;font-weight:800;display:inline-block';
-    if (n >= 90) return `<span style="${base};background:#c6f6d5;color:#276749">${s}</span>`;
-    if (n >= 85) return `<span style="${base};background:#fefcbf;color:#975a16">${s}</span>`;
+    if (n > 102) return `<span style="${base};background:#c6f6d5;color:#276749">🚀 ${s}</span>`;
+    if (n >= 98) return `<span style="${base};background:#c6f6d5;color:#276749">${s}</span>`;
+    if (n >= 90) return `<span style="${base};background:#fefcbf;color:#975a16">${s}</span>`;
     return           `<span style="${base};background:#fed7d7;color:#c53030">⚠️ ${s}</span>`;
   };
 

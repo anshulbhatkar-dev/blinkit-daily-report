@@ -1263,7 +1263,7 @@ function buildEmailHTML2() {
         ${ch('Proj DRR','#2b6cb0','border-right:2px solid #a0aec0')}
         ${ch('Target','#975a16')}
         ${ch('Proj','#276749')}
-        ${ch('MTD Growth%')}
+        ${ch('MTD 📈%')}
         ${ch('Proj MoM%')}
         ${ch('Ach %')}
         ${ch('Fill','#2b6cb0')}
@@ -1332,7 +1332,7 @@ function buildEmailHTML2() {
       <tr>
         ${SB2(cMon2+' Target NR', fmtNr(totTgtNrM), '')}
         ${SB2(cMon2+' Proj NR', fmtNr(totForeNrM), pillAch(totAch))}
-        ${SB2('MTD Growth%', totMoMDrr!==null?(parseFloat(totMoMDrr)>=0?'+':'')+totMoMDrr+'%':'–', `<span style="font-size:9px;color:#718096">MTD DRR vs ${pMon2} DRR</span>`)}
+        ${SB2('MTD 📈%', totMoMDrr!==null?(parseFloat(totMoMDrr)>=0?'+':'')+totMoMDrr+'%':'–', `<span style="font-size:9px;color:#718096">MTD DRR vs ${pMon2} DRR</span>`)}
         ${SB2('Proj MoM%', totFcstMoM!==null?(parseFloat(totFcstMoM)>=0?'+':'')+totFcstMoM+'%':'–', `<span style="font-size:9px;color:#718096">${cMon2} Proj vs ${pMon2} Actual</span>`)}
       </tr>
     </table>

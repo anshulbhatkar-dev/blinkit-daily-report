@@ -1129,7 +1129,7 @@ function buildEmailHTML2() {
   const totTgtNrM  = totTgtNr  * totalDays;
   const totForeNrM = (totProjNr||totAprNr) * totalDays;
   const totActualPrevNr = totMarNr * prevMonthCalDays;   // prev month actual full-month NR
-  const totMoMDrr  = calcPct(totAprNr, totMarNr);        // MTD DRR vs prev full-month DRR
+  const totMoMDrr  = calcPct(totAprNr, totLmtdNr);       // MTD DRR vs prev LMTD (same-day window)
   const totFcstMoM = calcPct(totForeNrM, totActualPrevNr); // Proj full month vs prev actual
   const totAch     = calcAch(totProjNr||totAprNr, totTgtNr);
 
@@ -1179,8 +1179,13 @@ function buildEmailHTML2() {
         const cL7Nr   = gV(cd.l7,'net_rev'),  cP7Nr   = gV(cd.p7,'net_rev');
         const cL7Qty  = gV(cd.l7,'qty'),      cP7Qty  = gV(cd.p7,'qty');
         const catFill = (fr[cat]?.fill_pct != null) ? fr[cat].fill_pct : null;
+        const cMarNr   = gV(cd.mar,'net_rev'), cMarQty = gV(cd.mar,'qty');
         const cForeNrM = (cProjNr||cAprNr)*totalDays,  cTgtNrM_c  = cTgtNr*totalDays;
         const cForeQtyM= (cProjQty||cAprQty)*totalDays, cTgtQtyM_c = cTgtQty*totalDays;
+        const cActPrevNr  = cMarNr  * prevMonthCalDays;
+        const cActPrevQty = cMarQty * prevMonthCalDays;
+        const cProjMoMNr  = calcPct(cForeNrM,  cActPrevNr);
+        const cProjMoMQty = calcPct(cForeQtyM, cActPrevQty);
         const sep = 'border-right:2px solid #cbd5e0;';
         return `
         <tr style="border-bottom:1px solid #f0f4f8;background:#fafbfc">
@@ -1192,6 +1197,7 @@ function buildEmailHTML2() {
           <td style="${cs}color:#975a16">${fmtNr(cTgtNrM_c)}</td>
           <td style="${cs}color:#276749;font-weight:700">${fmtNr(cForeNrM)}</td>
           <td style="${cs}">${pillChg(calcPct(cAprNr,cLmtdNr))}</td>
+          <td style="${cs}">${pillChg(cProjMoMNr)}</td>
           <td style="${cs}">${pillAch(calcAch(cProjNr||cAprNr,cTgtNr))}</td>
           <td style="padding:7px 8px;text-align:right;white-space:nowrap">${fillPill(catFill)}</td>
         </tr>
@@ -1204,6 +1210,7 @@ function buildEmailHTML2() {
           <td style="${cs}color:#975a16">${fmtQty(cTgtQtyM_c)}</td>
           <td style="${cs}color:#276749;font-weight:700">${fmtQty(cForeQtyM)}</td>
           <td style="${cs}">${pillChg(calcPct(cAprQty,cLmtdQty))}</td>
+          <td style="${cs}">${pillChg(cProjMoMQty)}</td>
           <td style="${cs}">${pillAch(calcAch(cProjQty||cAprQty,cTgtQty))}</td>
           <td style="padding:7px 8px;text-align:right">${fillPill(catFill)}</td>
         </tr>`;
@@ -1214,7 +1221,7 @@ function buildEmailHTML2() {
     <table width="100%" style="border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:14px;font-family:'Helvetica Neue',Arial,sans-serif;table-layout:fixed">
       <!-- Brand header -->
       <tr>
-        <td colspan="10" style="background:${bc};padding:9px 12px">
+        <td colspan="11" style="background:${bc};padding:9px 12px">
           <table width="100%" style="border-collapse:collapse">
             <tr>
               <td style="color:#fff;font-size:13px;font-weight:800">${brand}</td>
@@ -1224,8 +1231,8 @@ function buildEmailHTML2() {
                 <span style="color:rgba(255,255,255,.65);font-size:10px;margin-left:10px">Forecast:</span>
                 <span style="color:#fff;font-size:13px;font-weight:800;margin-left:4px">${fmtNr(foreNrM)}</span>
                 <span style="background:rgba(0,0,0,.25);color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px;margin-left:8px">${nrAch!==null?nrAch+'%':'–'} ach</span>
-                <span style="background:rgba(0,0,0,.2);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-left:5px">LMTD: ${nrLmtd!==null?(parseFloat(nrLmtd)>=0?'+':'')+nrLmtd+'%':'–'}</span>
-                <span style="background:rgba(0,0,0,.2);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-left:4px">Fcst MoM: ${nrFcstMoM!==null?(parseFloat(nrFcstMoM)>=0?'+':'')+nrFcstMoM+'%':'–'}</span>
+                <span style="background:rgba(0,0,0,.2);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-left:5px">MTD Growth: ${nrLmtd!==null?(parseFloat(nrLmtd)>=0?'+':'')+nrLmtd+'%':'–'}</span>
+                <span style="background:rgba(0,0,0,.2);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-left:4px">Proj MoM: ${nrFcstMoM!==null?(parseFloat(nrFcstMoM)>=0?'+':'')+nrFcstMoM+'%':'–'}</span>
               </td>
             </tr>
           </table>
@@ -1233,7 +1240,7 @@ function buildEmailHTML2() {
       </tr>
       <!-- Achievement bar -->
       <tr>
-        <td colspan="10" style="padding:5px 12px 6px;background:#fff;border-bottom:1px solid #edf2f7">
+        <td colspan="11" style="padding:5px 12px 6px;background:#fff;border-bottom:1px solid #edf2f7">
           <div style="font-size:9px;text-align:center;color:${achColor};font-weight:700;margin-bottom:3px">${nrAch!==null?nrAch+'%':'–'} of ${fmtNr(tgtNrM)} target &nbsp;·&nbsp; Forecast ${fmtNr(foreNrM)}</div>
           <table width="100%" style="border-collapse:collapse;height:4px"><tr>
             <td width="${achPct}%" style="height:4px;background:${achColor};border-radius:3px 0 0 3px"></td>
@@ -1245,7 +1252,7 @@ function buildEmailHTML2() {
       <tr>
         <td style="background:#f7fafc;border-right:1px solid #e2e8f0;padding:3px 8px"></td>
         <td colspan="4" style="padding:3px 8px;text-align:center;font-size:9px;font-weight:800;color:#2d3748;text-transform:uppercase;letter-spacing:.5px;background:#edf2f7;border-right:2px solid #a0aec0">◀ DRR Performance ▶</td>
-        <td colspan="5" style="padding:3px 8px;text-align:center;font-size:9px;font-weight:800;color:#2d3748;text-transform:uppercase;letter-spacing:.5px;background:#f0fff4">◀ ${cMon2} Month-wise Performance ▶</td>
+        <td colspan="6" style="padding:3px 8px;text-align:center;font-size:9px;font-weight:800;color:#2d3748;text-transform:uppercase;letter-spacing:.5px;background:#f0fff4">◀ ${cMon2} Month-wise Performance ▶</td>
       </tr>
       <!-- Column headers -->
       <tr>
@@ -1255,8 +1262,9 @@ function buildEmailHTML2() {
         ${ch('MTD DRR','#2b6cb0')}
         ${ch('Proj DRR','#2b6cb0','border-right:2px solid #a0aec0')}
         ${ch('Target','#975a16')}
-        ${ch('Proj (Month)','#276749')}
-        ${ch('MTD vs LMTD')}
+        ${ch('Proj','#276749')}
+        ${ch('MTD Growth%')}
+        ${ch('Proj MoM%')}
         ${ch('Ach %')}
         ${ch('Fill','#2b6cb0')}
       </tr>
@@ -1270,6 +1278,7 @@ function buildEmailHTML2() {
         <td style="${cs}color:#975a16">${fmtNr(tgtNrM)}</td>
         <td style="${cs}color:#276749;font-weight:800">${fmtNr(foreNrM)}</td>
         <td style="${cs}">${pillChg(nrLmtd)}</td>
+        <td style="${cs}">${pillChg(nrFcstMoM)}</td>
         <td style="${cs}">${pillAch(nrAch)}</td>
         <td style="padding:7px 8px;text-align:right">${fillPill(brandFill)}</td>
       </tr>
@@ -1283,11 +1292,12 @@ function buildEmailHTML2() {
         <td style="${cs}color:#975a16">${fmtQty(tgtQtyM)}</td>
         <td style="${cs}color:#276749;font-weight:800">${fmtQty(foreQtyM)}</td>
         <td style="${cs}">${pillChg(qtyLmtd)}</td>
+        <td style="${cs}">${pillChg(qtyFcstMoM)}</td>
         <td style="${cs}">${pillAch(qtyAch)}</td>
         <td style="padding:7px 8px;text-align:right">${fillPill(brandFill)}</td>
       </tr>
       <!-- Category breakdown header -->
-      <tr><td colspan="10" style="padding:3px 8px;font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.6px;background:#fafbfc;border-bottom:1px solid #edf2f7">Category Breakdown</td></tr>
+      <tr><td colspan="11" style="padding:3px 8px;font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.6px;background:#fafbfc;border-bottom:1px solid #edf2f7">Category Breakdown</td></tr>
       ${catRows}
     </table>`;
   }
@@ -1313,17 +1323,17 @@ function buildEmailHTML2() {
         <td style="text-align:right;background:rgba(255,255,255,.15);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;color:#bee3f8;white-space:nowrap">MOSAIC WELLNESS</td>
       </tr>
     </table>
-    <div style="color:#90cdf4;font-size:11px;margin-top:4px"><b>${asOf}</b> &nbsp;·&nbsp; ${cMon2} MTD (${mtdDays} of ${totalDays} days) &nbsp;·&nbsp; Forecast = Proj DRR × ${totalDays} days &nbsp;·&nbsp; tap to open dashboard →</div>
+    <div style="color:#90cdf4;font-size:11px;margin-top:4px"><b>${asOf}</b> &nbsp;·&nbsp; ${cMon2} MTD (${mtdDays} of ${totalDays} days) &nbsp;·&nbsp; tap to open dashboard →</div>
   </td></tr>
 
   <!-- PORTFOLIO SUMMARY -->
   <tr><td style="background:#f7fafc;border-bottom:2px solid #e2e8f0">
     <table width="100%" style="border-collapse:collapse">
       <tr>
-        ${SB2(cMon2+' Target NR', fmtNr(totTgtNrM), `<span style="font-size:9px;color:#a0aec0">Proj DRR × ${totalDays} days</span>`)}
+        ${SB2(cMon2+' Target NR', fmtNr(totTgtNrM), '')}
         ${SB2(cMon2+' Proj NR', fmtNr(totForeNrM), pillAch(totAch))}
-        ${SB2('MoM DRR Growth', totMoMDrr!==null?(parseFloat(totMoMDrr)>=0?'+':'')+totMoMDrr+'%':'–', `<span style="font-size:9px;color:#718096">MTD DRR vs ${pMon2} DRR</span>`)}
-        ${SB2('Fcst MoM Growth', totFcstMoM!==null?(parseFloat(totFcstMoM)>=0?'+':'')+totFcstMoM+'%':'–', `<span style="font-size:9px;color:#718096">${cMon2} Proj vs ${pMon2} Actual</span>`)}
+        ${SB2('MTD Growth%', totMoMDrr!==null?(parseFloat(totMoMDrr)>=0?'+':'')+totMoMDrr+'%':'–', `<span style="font-size:9px;color:#718096">MTD DRR vs ${pMon2} LMTD</span>`)}
+        ${SB2('Proj MoM%', totFcstMoM!==null?(parseFloat(totFcstMoM)>=0?'+':'')+totFcstMoM+'%':'–', `<span style="font-size:9px;color:#718096">${cMon2} Proj vs ${pMon2} Actual</span>`)}
       </tr>
     </table>
   </td></tr>

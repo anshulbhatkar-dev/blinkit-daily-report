@@ -655,6 +655,7 @@ function buildEmailHTML() {
     return istNow.getDate()-1;
   })();
   const cMon = DATA.meta.curr_month_name || 'Curr';
+  const pMon = DATA.meta.prev_month_name || 'Prev';
 
   // ── Helpers ─────────────────────���──────────────────────────────────
   const fmtNr  = v => v && v>0 ? '₹'+(v/1e5).toFixed(1)+'L' : '–';
@@ -716,20 +717,20 @@ function buildEmailHTML() {
     const fr = (DATA.fill_rate||{})[brand] || {};  // fill rate data for this brand
 
     // NR metrics
-    const aprNr  = gV(d.apr,'net_rev'), lmtdNr = gLmtd(d,'net_rev');
+    const aprNr  = gV(d.apr,'net_rev'), lmtdNr = gLmtd(d,'net_rev'), marNr = gV(d.mar,'net_rev');
     const projNr = gProj(d,'net_rev'), tgtNr = gV(d.tgt,'net_rev');
     const l7Nr   = gV(d.l7,'net_rev'), p7Nr = gV(d.p7,'net_rev');
-    const nrChg  = fmtPct(aprNr, lmtdNr);
+    const nrChg  = fmtPct(aprNr, marNr || lmtdNr);   // vs full prev month DRR
     const nrWow  = fmtPct(l7Nr, p7Nr);
     const nrAch  = fmtAch(projNr||aprNr, tgtNr);
     const nrAchBar = Math.min(100, parseFloat(nrAch)||0);
     const nrBiz  = totAprNr>0 ? (aprNr/totAprNr*100).toFixed(0)+'%' : '–';
 
     // Units metrics
-    const aprQty = gV(d.apr,'qty'), lmtdQty = gLmtd(d,'qty');
+    const aprQty = gV(d.apr,'qty'), lmtdQty = gLmtd(d,'qty'), marQty = gV(d.mar,'qty');
     const projQty= gProj(d,'qty'), tgtQty = gV(d.tgt,'qty');
     const l7Qty  = gV(d.l7,'qty'), p7Qty = gV(d.p7,'qty');
-    const qtyChg = fmtPct(aprQty, lmtdQty);
+    const qtyChg = fmtPct(aprQty, marQty || lmtdQty);  // vs full prev month DRR
     const qtyWow = fmtPct(l7Qty, p7Qty);
     const qtyAch = fmtAch(projQty||aprQty, tgtQty);
     const qtyBiz = totAprQty>0 ? (aprQty/totAprQty*100).toFixed(0)+'%' : '–';
@@ -741,15 +742,15 @@ function buildEmailHTML() {
     const catRows = Object.entries(d.categories||{})
       .sort(([,a],[,b])=>gV(b.apr,'net_rev')-gV(a.apr,'net_rev'))
       .map(([cat,cd]) => {
-        const cAprNr  = gV(cd.apr,'net_rev'), cLmtdNr = gLmtd(cd,'net_rev');
+        const cAprNr  = gV(cd.apr,'net_rev'), cLmtdNr = gLmtd(cd,'net_rev'), cMarNr = gV(cd.mar,'net_rev');
         const cProjNr = gProj(cd,'net_rev'),  cTgtNr  = gV(cd.tgt,'net_rev');
         const cL7Nr   = gV(cd.l7,'net_rev'),  cP7Nr   = gV(cd.p7,'net_rev');
-        const cAprQty = gV(cd.apr,'qty'),      cLmtdQty= gLmtd(cd,'qty');
+        const cAprQty = gV(cd.apr,'qty'),      cLmtdQty= gLmtd(cd,'qty'), cMarQty = gV(cd.mar,'qty');
         const cProjQty= gProj(cd,'qty'),       cTgtQty = gV(cd.tgt,'qty');
         const cL7Qty  = gV(cd.l7,'qty'),       cP7Qty  = gV(cd.p7,'qty');
-        const cNrChg  = fmtPct(cAprNr,cLmtdNr), cNrWow = fmtPct(cL7Nr,cP7Nr);
+        const cNrChg  = fmtPct(cAprNr, cMarNr||cLmtdNr), cNrWow = fmtPct(cL7Nr,cP7Nr);
         const cNrAch  = fmtAch(cProjNr||cAprNr,cTgtNr);
-        const cQtyChg = fmtPct(cAprQty,cLmtdQty), cQtyWow = fmtPct(cL7Qty,cP7Qty);
+        const cQtyChg = fmtPct(cAprQty, cMarQty||cLmtdQty), cQtyWow = fmtPct(cL7Qty,cP7Qty);
         const cQtyAch = fmtAch(cProjQty||cAprQty,cTgtQty);
         const cBizNr  = totAprNr>0  ? (cAprNr/totAprNr*100).toFixed(0)+'%'  : '–';
         const cBizQty = totAprQty>0 ? (cAprQty/totAprQty*100).toFixed(0)+'%' : '–';
@@ -818,7 +819,7 @@ function buildEmailHTML() {
         </td>
       </tr>
       <!-- Column headers: Metric | MTD | L7D | WoW % | Forecast | Target | Achievement | Growth | L10D Fill -->
-      <tr>${THL('Metric')}${TH(cMon+' MTD')}${TH('L7D DRR')}${TH('WoW %')}${TH('Forecast','#90cdf4')}${TH('Target','#fbd38d')}${TH('Achievement')}${TH('Growth')}${TH('L10D Fill')}</tr>
+      <tr>${THL('Metric')}${TH(cMon+' MTD')}${TH('L7D DRR')}${TH('WoW %')}${TH('Forecast','#90cdf4')}${TH('Target','#fbd38d')}${TH('Achievement')}${TH('vs '+pMon+' DRR')}${TH('L10D Fill')}</tr>
       <!-- NR row -->
       <tr style="border-bottom:1px solid #f0f4f8">
         <td style="padding:9px 8px;font-size:11px;font-weight:800;color:#4a5568;letter-spacing:.2px">DRR Net Revenue</td>
@@ -1683,10 +1684,10 @@ function refreshData() {
 
   Promise.all([
     fetchWithRetry(nbUrl,     90000, 30000, 'NewBase', parseNewBaseCsv,  {table:{rows:[]},_err:'timeout'}),
-    fetchJsonp(tgtUrl,    20000,'Target' ).then(parseTargetCsv  ).catch(err=>{console.warn('Target:' ,err.message);return {table:{rows:[]}};}),
-    fetchJsonp(skuUrl,    20000,'SKU'    ).then(parseSkuCsv     ).catch(err=>{console.warn('SKU:',    err.message);return {};}),
+    fetchWithRetry(tgtUrl,    60000, 30000, 'Target',  parseTargetCsv,   {table:{rows:[]}}),
+    fetchWithRetry(skuUrl,    60000, 30000, 'SKU',     parseSkuCsv,      {}),
     fetchWithRetry(fillUrl,   60000, 30000, 'Fill',    parseFillRateCsv, {}),
-    fetchJsonp(searchUrl, 20000,'Search' ).then(parseSearchCsv  ).catch(err=>{console.warn('Search:',  err.message);return {};})
+    fetchWithRetry(searchUrl, 30000, 20000, 'Search',  parseSearchCsv,   {})
   ]).then(([nbJson, tgtJson, projByIdMap, fillRateData, searchData]) => {
       const nbRows  = nbJson.table?.rows?.length  || 0;
       const tgtRows = tgtJson.table?.rows?.length || 0;

@@ -1198,7 +1198,7 @@ function buildEmailHTML2() {
           <td style="${cs}color:#276749;font-weight:700">${fmtNr(cForeNrM)}</td>
           <td style="${cs}">${pillChg(calcPct(cAprNr,cMarNr))}</td>
           <td style="${cs}">${pillChg(cProjMoMNr)}</td>
-          <td style="${cs}">${pillAch(calcAch(cProjNr||cAprNr,cTgtNr))}</td>
+          <td style="${cs}border-right:2px solid #a0aec0">${pillAch(calcAch(cProjNr||cAprNr,cTgtNr))}</td>
           <td style="padding:7px 8px;text-align:right;white-space:nowrap">${fillPill(catFill)}</td>
         </tr>
         <tr style="border-bottom:2px solid #edf2f7;background:#fafbfc">
@@ -1211,7 +1211,7 @@ function buildEmailHTML2() {
           <td style="${cs}color:#276749;font-weight:700">${fmtQty(cForeQtyM)}</td>
           <td style="${cs}">${pillChg(calcPct(cAprQty,cMarQty))}</td>
           <td style="${cs}">${pillChg(cProjMoMQty)}</td>
-          <td style="${cs}">${pillAch(calcAch(cProjQty||cAprQty,cTgtQty))}</td>
+          <td style="${cs}border-right:2px solid #a0aec0">${pillAch(calcAch(cProjQty||cAprQty,cTgtQty))}</td>
           <td style="padding:7px 8px;text-align:right">${fillPill(catFill)}</td>
         </tr>`;
       }).join('');
@@ -1252,7 +1252,8 @@ function buildEmailHTML2() {
       <tr>
         <td style="background:#f7fafc;border-right:1px solid #e2e8f0;padding:3px 8px"></td>
         <td colspan="4" style="padding:3px 8px;text-align:center;font-size:9px;font-weight:800;color:#2d3748;text-transform:uppercase;letter-spacing:.5px;background:#edf2f7;border-right:2px solid #a0aec0">◀ DRR Performance ▶</td>
-        <td colspan="6" style="padding:3px 8px;text-align:center;font-size:9px;font-weight:800;color:#2d3748;text-transform:uppercase;letter-spacing:.5px;background:#f0fff4">◀ ${cMon2} Month-wise Performance ▶</td>
+        <td colspan="5" style="padding:3px 8px;text-align:center;font-size:9px;font-weight:800;color:#2d3748;text-transform:uppercase;letter-spacing:.5px;background:#f0fff4;border-right:2px solid #a0aec0">◀ ${cMon2} Month-wise Performance ▶</td>
+        <td style="padding:3px 8px;text-align:center;font-size:9px;font-weight:800;color:#2b6cb0;text-transform:uppercase;letter-spacing:.5px;background:#ebf8ff">Fill</td>
       </tr>
       <!-- Column headers -->
       <tr>
@@ -1266,7 +1267,7 @@ function buildEmailHTML2() {
         ${ch('MTD 📈%')}
         ${ch('Proj MoM%')}
         ${ch('Ach %')}
-        ${ch('Fill','#2b6cb0')}
+        <td style="padding:5px 8px;text-align:right;font-size:9px;font-weight:700;color:#2b6cb0;text-transform:uppercase;letter-spacing:.3px;background:#f7fafc;white-space:nowrap">L10D<br>Fill%</td>
       </tr>
       <!-- NR row -->
       <tr style="border-bottom:1px solid #f0f4f8">
@@ -1279,7 +1280,7 @@ function buildEmailHTML2() {
         <td style="${cs}color:#276749;font-weight:800">${fmtNr(foreNrM)}</td>
         <td style="${cs}">${pillChg(nrLmtd)}</td>
         <td style="${cs}">${pillChg(nrFcstMoM)}</td>
-        <td style="${cs}">${pillAch(nrAch)}</td>
+        <td style="${cs}border-right:2px solid #a0aec0">${pillAch(nrAch)}</td>
         <td style="padding:7px 8px;text-align:right">${fillPill(brandFill)}</td>
       </tr>
       <!-- Units row -->
@@ -1293,7 +1294,7 @@ function buildEmailHTML2() {
         <td style="${cs}color:#276749;font-weight:800">${fmtQty(foreQtyM)}</td>
         <td style="${cs}">${pillChg(qtyLmtd)}</td>
         <td style="${cs}">${pillChg(qtyFcstMoM)}</td>
-        <td style="${cs}">${pillAch(qtyAch)}</td>
+        <td style="${cs}border-right:2px solid #a0aec0">${pillAch(qtyAch)}</td>
         <td style="padding:7px 8px;text-align:right">${fillPill(brandFill)}</td>
       </tr>
       <!-- Category breakdown header -->

@@ -988,7 +988,7 @@ function showToast(msg, color) {
 }
 
 async function gmailCreateDraftWithToken(accessToken) {
-  const TO  = 'sudarshan.balaraman@mosaicwellness.in,vaibhav.joneja@mosaicwellness.in,revant@mosaicwellness.in,vipul.jadhav@mosaicwellness.in,mohnish@mosaicwellness.in,geet@mosaicwellness.in';
+  const TO  = 'vaibhav.joneja@mosaicwellness.in,revant@mosaicwellness.in,vipul.jadhav@mosaicwellness.in,mohnish@mosaicwellness.in,geet@mosaicwellness.in';
   const CC  = 'anshul.bhatkar@mosaicwellness.in';
   const rawSubj = document.getElementById('email-subject-preview').textContent || 'Blinkit Daily Update';
   // RFC 2047 encoded-word: prevents UTF-8 garbling in email clients
@@ -1035,7 +1035,7 @@ async function gmailCreateDraftWithToken(accessToken) {
 function createEmailDraft() {
   if (GMAIL_CLIENT_ID === 'YOUR_CLIENT_ID.apps.googleusercontent.com') {
     // Fallback: open Gmail compose (old behaviour) if not yet configured
-    const TO = 'anshul.bhatkar@mosaicwellness.in,sudarshan.balaraman@mosaicwellness.in,vaibhav.joneja@mosaicwellness.in';
+    const TO = 'anshul.bhatkar@mosaicwellness.in,vaibhav.joneja@mosaicwellness.in';
     const subj = document.getElementById('email-subject-preview').textContent || 'Blinkit Daily Update';
     const gmailUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(TO)}&su=${encodeURIComponent(subj)}`;
     window.open(gmailUrl, '_blank');

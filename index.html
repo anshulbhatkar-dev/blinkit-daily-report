@@ -1138,6 +1138,10 @@ function buildEmailHTML2() {
     const d = h[brand]; if (!d) return '';
     const bc = BC[brand];
     const fr = (DATA.fill_rate||{})[brand] || {};
+    const sd = (DATA.search||{})[brand] || null;
+    const srchGrowth = sd && sd.mtd_growth !== null && sd.mtd_growth !== undefined
+      ? ((parseFloat(sd.mtd_growth)>=0?'+':'')+parseFloat(sd.mtd_growth).toFixed(1)+'%')
+      : null;
 
     // DRR values
     const aprNr   = gV(d.apr,'net_rev'),  lmtdNr  = gLmtd(d,'net_rev'),  tgtNr  = gV(d.tgt,'net_rev');
@@ -1233,6 +1237,7 @@ function buildEmailHTML2() {
                 <span style="background:rgba(0,0,0,.25);color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px;margin-left:8px">${nrAch!==null?nrAch+'%':'–'} ach</span>
                 <span style="background:rgba(0,0,0,.2);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-left:5px">MTD Growth: ${nrLmtd!==null?(parseFloat(nrLmtd)>=0?'+':'')+nrLmtd+'%':'–'}</span>
                 <span style="background:rgba(0,0,0,.2);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-left:4px">Proj MoM: ${nrFcstMoM!==null?(parseFloat(nrFcstMoM)>=0?'+':'')+nrFcstMoM+'%':'–'}</span>
+                ${srchGrowth ? `<span style="background:rgba(255,255,255,.15);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-left:4px">Search: ${srchGrowth}</span>` : ''}
               </td>
             </tr>
           </table>

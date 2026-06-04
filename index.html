@@ -850,10 +850,24 @@ function buildEmailHTML() {
     </table>`;
   }
 
-  // ── Search trends table ────────────────────────��───────────────────────────────────
+  // ── Search trends table ──────────────────────────────────────────────────────────
   function makeSearchTable() {
     const sd = DATA.search || {};
-    if (Object.keys(sd).length === 0) return '';
+
+    // ── DEBUG PANEL — shows raw sheet row names + what was matched ────────────────
+    const dbg = window._searchDebug || {};
+    const debugHtml = `
+      <div style="background:#1a1f2e;border:1px solid #f6ad55;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:11px">
+        <div style="font-weight:700;color:#f6ad55;margin-bottom:6px">🔍 Search Debug (remove after fixing)</div>
+        <div style="color:#cbd5e0;margin-bottom:4px"><b>hdrIdx:</b> ${dbg.hdrIdx ?? '?'} &nbsp;|&nbsp; <b>hasHeaderDates:</b> ${dbg.hasHeaderDates ?? '?'}</div>
+        <div style="color:#cbd5e0;margin-bottom:4px"><b>Matched brands:</b> ${(dbg.matched||[]).join(', ') || 'none'}</div>
+        <div style="color:#cbd5e0;margin-bottom:4px"><b>DATA.search keys:</b> ${Object.keys(sd).join(', ') || 'empty'}</div>
+        <div style="color:#8b949e;margin-bottom:2px"><b>All col-0 row names in sheet:</b></div>
+        <div style="color:#8b949e;font-size:10px;line-height:1.6;max-height:120px;overflow:auto;background:#0d1117;padding:6px;border-radius:4px">${(dbg.allRowNames||[]).map(n=>`"${n}"`).join('<br>')}</div>
+        <div style="color:#8b949e;margin-top:6px"><b>DATA.search values:</b></div>
+        <div style="color:#8b949e;font-size:10px;background:#0d1117;padding:6px;border-radius:4px">${Object.entries(sd).map(([k,v])=>`${k}: mtd_avg=${v.mtd_avg} mtd_growth=${v.mtd_growth!==null?v.mtd_growth?.toFixed(1)+'%':'null'}`).join('<br>') || 'empty'}</div>
+      </div>`;
+    if (Object.keys(sd).length === 0) return debugHtml;
 
     const fmtN   = n => n ? Number(n).toLocaleString('en-IN') : '–';
     const fmtSPct = p => {
@@ -902,7 +916,7 @@ function buildEmailHTML() {
       }
     }
 
-    return `
+    return debugHtml + `
     <table width="100%" style="border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:14px;font-family:'Helvetica Neue',Arial,sans-serif">
       <tr style="background:#2d3748">
         <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.4px">Brand</th>
@@ -1833,13 +1847,17 @@ function refreshData() {
     // Log first row content for diagnosis
     console.log(`Search CSV: lines=${lines.length}, hdrIdx=${hdrIdx}, row0=[${lines[0]?.substring(0,120)}]`);
 
-    // ── Parse brand rows into {date, val} pairs ─────────────────────
+    // ── Parse brand rows — log ALL col-0 values to surface name mismatches ──────
     const rawBrands = {};
+    const allRowNames = []; // every non-empty col-0 value for debug
     const startLi = hdrIdx >= 0 ? hdrIdx + 1 : 1;
     for (let li = startLi; li < lines.length; li++) {
       const f = splitCsvRow(lines[li]);
-      if (!f || f.length < 5) continue;
-      const bRaw  = f[0].replace(/^"|"$/g,'').trim().replace(/\s*searches?$/i,'').trim();
+      if (!f || f.length < 3) continue;
+      const col0 = f[0].replace(/^"|"$/g,'').trim();
+      if (col0) allRowNames.push(col0);
+      if (f.length < 5) continue;
+      const bRaw  = col0.replace(/\s*searches?$/i,'').trim();
       const bName = SBRAND.find(s => s.toLowerCase() === bRaw.toLowerCase());
       if (!bName) continue;
       const entries = [];
@@ -1851,7 +1869,12 @@ function refreshData() {
       }
       rawBrands[bName] = entries;
     }
-    console.log(`Search CSV parsed: hasHeaderDates=${hasHeaderDates}, brands=[${Object.keys(rawBrands).join(', ')}]`);
+    // Log everything useful: row names, matched brands, header info
+    console.log(`Search CSV: hdrIdx=${hdrIdx}, hasHeaderDates=${hasHeaderDates}`);
+    console.log(`Search CSV: ALL col-0 row names →`, allRowNames);
+    console.log(`Search CSV: matched SBRAND →`, Object.keys(rawBrands));
+    // Store debug info for display
+    window._searchDebug = { allRowNames, matched: Object.keys(rawBrands), hdrIdx, hasHeaderDates };
     return { _raw: rawBrands, _hasHeaderDates: hasHeaderDates, _colDates: colDates };
   }
 

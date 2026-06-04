@@ -1138,10 +1138,19 @@ function buildEmailHTML2() {
     const d = h[brand]; if (!d) return '';
     const bc = BC[brand];
     const fr = (DATA.fill_rate||{})[brand] || {};
-    const sd = (DATA.search||{})[brand] || null;
-    const srchGrowth = sd && sd.mtd_growth !== null && sd.mtd_growth !== undefined
-      ? ((parseFloat(sd.mtd_growth)>=0?'+':'')+parseFloat(sd.mtd_growth).toFixed(1)+'%')
-      : null;
+    const SRCH_COMPS = {
+      'Be Bodywise': ['Chemist at Play','Wishcare'],
+      'Little Joys': ['Gritzo'],
+      'Man Matters': ['Kapiva']
+    };
+    const srchPill = (name) => {
+      const d = (DATA.search||{})[name] || null;
+      if (!d || d.mtd_growth === null || d.mtd_growth === undefined) return '';
+      const n = parseFloat(d.mtd_growth), pct = (n>=0?'+':'')+n.toFixed(1)+'%';
+      const bg = n>=0 ? 'background:#c6f6d5;color:#276749' : 'background:#fed7d7;color:#c53030';
+      return `<span style="display:inline-block;${bg};font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:5px;white-space:nowrap">${name} Searches: <b>${pct} MTD</b></span>`;
+    };
+    const searchPills = [brand, ...(SRCH_COMPS[brand]||[])].map(srchPill).join('');
 
     // DRR values
     const aprNr   = gV(d.apr,'net_rev'),  lmtdNr  = gLmtd(d,'net_rev'),  tgtNr  = gV(d.tgt,'net_rev');
@@ -1242,14 +1251,11 @@ function buildEmailHTML2() {
           </table>
         </td>
       </tr>
-      <!-- Achievement bar -->
+      <!-- Search trend pills bar -->
       <tr>
-        <td colspan="11" style="padding:5px 12px 6px;background:#fff;border-bottom:1px solid #edf2f7">
-          <div style="font-size:9px;text-align:center;color:${achColor};font-weight:700;margin-bottom:3px">${nrAch!==null?nrAch+'%':'–'} of ${fmtNr(tgtNrM)} target &nbsp;·&nbsp; Forecast ${fmtNr(foreNrM)}</div>
-          <table width="100%" style="border-collapse:collapse;height:4px"><tr>
-            <td width="${achPct}%" style="height:4px;background:${achColor};border-radius:3px 0 0 3px"></td>
-            <td style="height:4px;background:#edf2f7"></td>
-          </tr></table>
+        <td colspan="11" style="padding:6px 12px;background:#fff;border-bottom:1px solid #edf2f7">
+          <span style="font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.4px;margin-right:8px">Search Trends</span>
+          ${searchPills || '<span style="font-size:10px;color:#a0aec0;font-style:italic">No search data</span>'}
         </td>
       </tr>
       <!-- Section header row -->
@@ -1304,16 +1310,6 @@ function buildEmailHTML2() {
       <!-- Category breakdown header -->
       <tr><td colspan="11" style="padding:3px 8px;font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.6px;background:#fafbfc;border-bottom:1px solid #edf2f7">Category Breakdown</td></tr>
       ${catRows}
-      ${srchGrowth ? `
-      <!-- Search trend row -->
-      <tr style="background:#f7fafc;border-top:2px solid #e2e8f0">
-        <td colspan="11" style="padding:7px 12px">
-          <span style="font-size:10px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.4px">Search Trend &nbsp;·&nbsp;</span>
-          <span style="font-size:11px;font-weight:800;color:${parseFloat(sd.mtd_growth)>=0?'#276749':'#c53030'}">${srchGrowth} MTD</span>
-          ${sd.wow !== null && sd.wow !== undefined ? `<span style="font-size:10px;color:#718096;margin-left:8px">/ ${(parseFloat(sd.wow)>=0?'+':'')+parseFloat(sd.wow).toFixed(1)}% WoW</span>` : ''}
-          ${sd.mtd_avg ? `<span style="font-size:10px;color:#718096;margin-left:8px">· ${Number(sd.mtd_avg).toLocaleString('en-IN')} avg daily searches</span>` : ''}
-        </td>
-      </tr>` : ''}
     </table>`;
   }
 
@@ -1812,13 +1808,13 @@ function refreshData() {
   // Brand rows: col0=brand name, col1+ = daily search counts (newest first).
   // Skip cols containing '%' or '#' (formula/pct cells in some brand rows).
   function parseSearchCsv(text) {
-    const SBRAND = ['Be Bodywise','Little Joys','Man Matters','Chemist at Play','Wishcare','Gritzo'];
+    const SBRAND = ['Be Bodywise','Little Joys','Man Matters','Chemist at Play','Wishcare','Gritzo','Kapiva'];
     const lines  = text.replace(/\r/g,'').split('\n');
     const raw    = {};
     for (const line of lines) {
       const f = splitCsvRow(line);
       if (!f || f.length < 5) continue;
-      const bName = f[0].replace(/^"|"$/g,'').trim();
+      const bName = f[0].replace(/^"|"$/g,'').trim().replace(/\s*searches?$/i,'').trim();
       if (!SBRAND.includes(bName)) continue;
       const vals = [];
       for (let i = 1; i < f.length; i++) {

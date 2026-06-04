@@ -1847,8 +1847,8 @@ function refreshData() {
     // Log first row content for diagnosis
     console.log(`Search CSV: lines=${lines.length}, hdrIdx=${hdrIdx}, row0=[${lines[0]?.substring(0,120)}]`);
 
-    // ── Parse brand rows — log ALL col-0 values to surface name mismatches ──────
-    const rawBrands = {};
+    // ── Parse brand rows — collect ALL occurrences, pick best per brand ──────────
+    const allOccurrences = {}; // { brandName: [ [entries], [entries], ... ] }
     const allRowNames = []; // every non-empty col-0 value for debug
     const startLi = hdrIdx >= 0 ? hdrIdx + 1 : 1;
     for (let li = startLi; li < lines.length; li++) {
@@ -1863,11 +1863,20 @@ function refreshData() {
       const entries = [];
       for (let i = 1; i < f.length; i++) {
         const s = f[i].replace(/^"|"$/g,'').trim();
-        if (s.includes('%') || s.includes('#')) continue; // formula/pct cols — skip entirely
+        if (s.includes('%') || s.includes('#')) continue;
         const n = s === '' ? 0 : parseFloat(s.replace(/,/g,''));
         entries.push({ date: (hasHeaderDates && colDates[i]) ? colDates[i] : null, val: isNaN(n) ? 0 : n });
       }
-      rawBrands[bName] = entries;
+      if (!allOccurrences[bName]) allOccurrences[bName] = [];
+      allOccurrences[bName].push(entries);
+    }
+    // Pick the occurrence with the most non-zero values (richest data)
+    const rawBrands = {};
+    for (const [bName, occs] of Object.entries(allOccurrences)) {
+      rawBrands[bName] = occs.reduce((best, cur) => {
+        const nonZero = arr => arr.filter(e => e.val > 0).length;
+        return nonZero(cur) > nonZero(best) ? cur : best;
+      }, occs[0]);
     }
     // Log everything useful: row names, matched brands, header info
     console.log(`Search CSV: hdrIdx=${hdrIdx}, hasHeaderDates=${hasHeaderDates}`);

@@ -1144,20 +1144,28 @@ function buildEmailHTML2() {
       'Little Joys': ['Gritzo'],
       'Man Matters': ['Kapiva']
     };
-    const srchPill = (name) => {
+    const brandSrchGrowth = ((DATA.search||{})[brand] || {}).mtd_growth ?? null;
+    const srchPill = (name, isComp) => {
       const d = (DATA.search||{})[name] || null;
       if (!d) return '';
-      // Prefer MTD growth; fall back to WoW if MTD unavailable (e.g. no current-month data yet)
       const hasMtd = d.mtd_growth !== null && d.mtd_growth !== undefined;
       const hasWow = d.wow !== null && d.wow !== undefined;
       if (!hasMtd && !hasWow) return '';
       const val   = hasMtd ? d.mtd_growth : d.wow;
       const label = hasMtd ? 'MTD' : 'WoW';
       const n = parseFloat(val), pct = (n>=0?'+':'')+n.toFixed(1)+'%';
-      const bg = n>=0 ? 'background:#c6f6d5;color:#276749' : 'background:#fed7d7;color:#c53030';
-      return `<span style="display:inline-block;${bg};font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:5px;white-space:nowrap">${name}: <b>${pct} ${label}</b></span>`;
+      // Flag competitor if growing faster than our brand
+      const threat = isComp && brandSrchGrowth !== null && n > brandSrchGrowth;
+      const bg = threat
+        ? 'background:#fff3cd;color:#856404;border:1.5px solid #f6ad55'   // amber = outpacing us
+        : n>=0 ? 'background:#c6f6d5;color:#276749' : 'background:#fed7d7;color:#c53030';
+      const flag = threat ? ' ▲' : '';
+      return `<span style="display:inline-block;${bg};font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:5px;white-space:nowrap">${name}: <b>${pct} ${label}${flag}</b></span>`;
     };
-    const searchPills = [brand, ...(SRCH_COMPS[brand]||[])].map(srchPill).join('');
+    const searchPills = [
+      srchPill(brand, false),
+      ...(SRCH_COMPS[brand]||[]).map(c => srchPill(c, true))
+    ].join('');
 
     // DRR values
     const aprNr   = gV(d.apr,'net_rev'),  lmtdNr  = gLmtd(d,'net_rev'),  tgtNr  = gV(d.tgt,'net_rev');

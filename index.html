@@ -1237,7 +1237,6 @@ function buildEmailHTML2() {
                 <span style="background:rgba(0,0,0,.25);color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px;margin-left:8px">${nrAch!==null?nrAch+'%':'–'} ach</span>
                 <span style="background:rgba(0,0,0,.2);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-left:5px">MTD Growth: ${nrLmtd!==null?(parseFloat(nrLmtd)>=0?'+':'')+nrLmtd+'%':'–'}</span>
                 <span style="background:rgba(0,0,0,.2);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-left:4px">Proj MoM: ${nrFcstMoM!==null?(parseFloat(nrFcstMoM)>=0?'+':'')+nrFcstMoM+'%':'–'}</span>
-                ${srchGrowth ? `<span style="background:rgba(255,255,255,.15);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-left:4px">Search: ${srchGrowth}</span>` : ''}
               </td>
             </tr>
           </table>
@@ -1305,6 +1304,16 @@ function buildEmailHTML2() {
       <!-- Category breakdown header -->
       <tr><td colspan="11" style="padding:3px 8px;font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.6px;background:#fafbfc;border-bottom:1px solid #edf2f7">Category Breakdown</td></tr>
       ${catRows}
+      ${srchGrowth ? `
+      <!-- Search trend row -->
+      <tr style="background:#f7fafc;border-top:2px solid #e2e8f0">
+        <td colspan="11" style="padding:7px 12px">
+          <span style="font-size:10px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.4px">Search Trend &nbsp;·&nbsp;</span>
+          <span style="font-size:11px;font-weight:800;color:${parseFloat(sd.mtd_growth)>=0?'#276749':'#c53030'}">${srchGrowth} MTD</span>
+          ${sd.wow !== null && sd.wow !== undefined ? `<span style="font-size:10px;color:#718096;margin-left:8px">/ ${(parseFloat(sd.wow)>=0?'+':'')+parseFloat(sd.wow).toFixed(1)}% WoW</span>` : ''}
+          ${sd.mtd_avg ? `<span style="font-size:10px;color:#718096;margin-left:8px">· ${Number(sd.mtd_avg).toLocaleString('en-IN')} avg daily searches</span>` : ''}
+        </td>
+      </tr>` : ''}
     </table>`;
   }
 

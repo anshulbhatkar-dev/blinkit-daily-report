@@ -1130,7 +1130,7 @@ function buildEmailHTML2() {
   const totTgtNrM  = totTgtNr  * totalDays;
   const totForeNrM = (totProjNr||totAprNr) * totalDays;
   const totActualPrevNr = totMarNr * prevMonthCalDays;   // prev month actual full-month NR
-  const totMoMDrr  = calcPct(totAprNr, totMarNr);         // MTD DRR vs prev full-month DRR
+  const totMoMDrr  = calcPct(totAprNr, totLmtdNr);        // MTD DRR vs prev LMTD DRR (same days)
   const totFcstMoM = calcPct(totForeNrM, totActualPrevNr); // Proj full month vs prev actual
   const totAch     = calcAch(totProjNr||totAprNr, totTgtNr);
 
@@ -1187,11 +1187,11 @@ function buildEmailHTML2() {
 
     // Computed metrics
     const nrWow      = calcPct(l7Nr,  p7Nr);
-    const nrLmtd     = calcPct(aprNr, marNr2);            // MTD DRR vs prev full-month DRR
+    const nrLmtd     = calcPct(aprNr, lmtdNr);            // MTD DRR vs prev LMTD DRR (same days)
     const nrFcstMoM  = calcPct(foreNrM, actualPrevNr);   // Forecast MoM: proj full month vs prev actual
     const nrAch      = calcAch(projNr||aprNr, tgtNr);
     const qtyWow     = calcPct(l7Qty, p7Qty);
-    const qtyLmtd    = calcPct(aprQty, marQty2);          // MTD DRR vs prev full-month DRR
+    const qtyLmtd    = calcPct(aprQty, lmtdQty);          // MTD DRR vs prev LMTD DRR (same days)
     const qtyFcstMoM = calcPct(foreQtyM, actualPrevQty);
     const qtyAch     = calcAch(projQty||aprQty, tgtQty);
     const achPct     = Math.min(100, parseFloat(nrAch)||0);
@@ -1224,7 +1224,7 @@ function buildEmailHTML2() {
           <td style="${cs}color:#2b6cb0;font-weight:600;${sep}">${fmtNr(cProjNr)}</td>
           <td style="${cs}color:#975a16">${fmtNr(cTgtNrM_c)}</td>
           <td style="${cs}color:#276749;font-weight:700">${fmtNr(cForeNrM)}</td>
-          <td style="${cs}">${pillChg(calcPct(cAprNr,cMarNr))}</td>
+          <td style="${cs}">${pillChg(calcPct(cAprNr,cLmtdNr))}</td>
           <td style="${cs}">${pillChg(cProjMoMNr)}</td>
           <td style="${cs}border-right:2px solid #a0aec0">${pillAch(calcAch(cProjNr||cAprNr,cTgtNr))}</td>
           <td style="padding:7px 8px;text-align:right;white-space:nowrap">${fillPill(catFill)}</td>
@@ -1237,7 +1237,7 @@ function buildEmailHTML2() {
           <td style="${cs}color:#2b6cb0;${sep}">${fmtQty(cProjQty)}</td>
           <td style="${cs}color:#975a16">${fmtQty(cTgtQtyM_c)}</td>
           <td style="${cs}color:#276749;font-weight:700">${fmtQty(cForeQtyM)}</td>
-          <td style="${cs}">${pillChg(calcPct(cAprQty,cMarQty))}</td>
+          <td style="${cs}">${pillChg(calcPct(cAprQty,cLmtdQty))}</td>
           <td style="${cs}">${pillChg(cProjMoMQty)}</td>
           <td style="${cs}border-right:2px solid #a0aec0">${pillAch(calcAch(cProjQty||cAprQty,cTgtQty))}</td>
           <td style="padding:7px 8px;text-align:right">${fillPill(catFill)}</td>

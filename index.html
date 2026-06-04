@@ -1269,7 +1269,7 @@ function buildEmailHTML2() {
       <!-- Search trend pills bar -->
       <tr>
         <td colspan="11" style="padding:6px 12px;background:#fff;border-bottom:1px solid #edf2f7">
-          <span style="font-size:9px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.4px;margin-right:8px">Search Trends</span>
+          <span style="font-size:10px;font-weight:900;color:#4a5568;text-transform:uppercase;letter-spacing:.6px;margin-right:8px;border-left:3px solid #667eea;padding-left:6px">🔍 Search Trends</span>
           ${searchPills || '<span style="font-size:10px;color:#a0aec0;font-style:italic">No search data</span>'}
         </td>
       </tr>
@@ -1369,7 +1369,7 @@ function buildEmailHTML2() {
       <tr>
         ${SB2(cMon2+' Target NR', fmtNr(totTgtNrM), '')}
         ${SB2(cMon2+' Proj NR', fmtNr(totForeNrM), pillAch(totAch))}
-        ${SB2('MTD 📈%', totMoMDrr!==null?(parseFloat(totMoMDrr)>=0?'+':'')+totMoMDrr+'%':'–', `<span style="font-size:9px;color:#718096">MTD DRR vs ${pMon2} DRR</span>`)}
+        ${SB2('MTD 📈%', totMoMDrr!==null?(parseFloat(totMoMDrr)>=0?'+':'')+totMoMDrr+'%':'–', `<span style="font-size:9px;color:#718096">MTD DRR vs LMTD DRR</span>`)}
         ${SB2('Proj MoM%', totFcstMoM!==null?(parseFloat(totFcstMoM)>=0?'+':'')+totFcstMoM+'%':'–', `<span style="font-size:9px;color:#718096">${cMon2} Proj vs ${pMon2} Actual</span>`)}
       </tr>
     </table>

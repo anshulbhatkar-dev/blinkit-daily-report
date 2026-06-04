@@ -1148,7 +1148,7 @@ function buildEmailHTML2() {
       if (!d || d.mtd_growth === null || d.mtd_growth === undefined) return '';
       const n = parseFloat(d.mtd_growth), pct = (n>=0?'+':'')+n.toFixed(1)+'%';
       const bg = n>=0 ? 'background:#c6f6d5;color:#276749' : 'background:#fed7d7;color:#c53030';
-      return `<span style="display:inline-block;${bg};font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:5px;white-space:nowrap">${name} Searches: <b>${pct} MTD</b></span>`;
+      return `<span style="display:inline-block;${bg};font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:5px;white-space:nowrap">${name}: <b>${pct} MTD</b></span>`;
     };
     const searchPills = [brand, ...(SRCH_COMPS[brand]||[])].map(srchPill).join('');
 
@@ -1814,8 +1814,9 @@ function refreshData() {
     for (const line of lines) {
       const f = splitCsvRow(line);
       if (!f || f.length < 5) continue;
-      const bName = f[0].replace(/^"|"$/g,'').trim().replace(/\s*searches?$/i,'').trim();
-      if (!SBRAND.includes(bName)) continue;
+      const bRaw  = f[0].replace(/^"|"$/g,'').trim().replace(/\s*searches?$/i,'').trim();
+      const bName = SBRAND.find(s => s.toLowerCase() === bRaw.toLowerCase()) || bRaw;
+      if (!SBRAND.map(s=>s.toLowerCase()).includes(bName.toLowerCase())) continue;
       const vals = [];
       for (let i = 1; i < f.length; i++) {
         const s = f[i].replace(/^"|"$/g,'').trim();

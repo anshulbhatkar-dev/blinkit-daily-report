@@ -854,20 +854,7 @@ function buildEmailHTML() {
   function makeSearchTable() {
     const sd = DATA.search || {};
 
-    // ── DEBUG PANEL — shows raw sheet row names + what was matched ────────────────
-    const dbg = window._searchDebug || {};
-    const debugHtml = `
-      <div style="background:#1a1f2e;border:1px solid #f6ad55;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:11px">
-        <div style="font-weight:700;color:#f6ad55;margin-bottom:6px">🔍 Search Debug (remove after fixing)</div>
-        <div style="color:#cbd5e0;margin-bottom:4px"><b>hdrIdx:</b> ${dbg.hdrIdx ?? '?'} &nbsp;|&nbsp; <b>hasHeaderDates:</b> ${dbg.hasHeaderDates ?? '?'}</div>
-        <div style="color:#cbd5e0;margin-bottom:4px"><b>Matched brands:</b> ${(dbg.matched||[]).join(', ') || 'none'}</div>
-        <div style="color:#cbd5e0;margin-bottom:4px"><b>DATA.search keys:</b> ${Object.keys(sd).join(', ') || 'empty'}</div>
-        <div style="color:#8b949e;margin-bottom:2px"><b>All col-0 row names in sheet:</b></div>
-        <div style="color:#8b949e;font-size:10px;line-height:1.6;max-height:120px;overflow:auto;background:#0d1117;padding:6px;border-radius:4px">${(dbg.allRowNames||[]).map(n=>`"${n}"`).join('<br>')}</div>
-        <div style="color:#8b949e;margin-top:6px"><b>DATA.search values:</b></div>
-        <div style="color:#8b949e;font-size:10px;background:#0d1117;padding:6px;border-radius:4px">${Object.entries(sd).map(([k,v])=>`${k}: mtd_avg=${v.mtd_avg} mtd_growth=${v.mtd_growth!==null?v.mtd_growth?.toFixed(1)+'%':'null'}`).join('<br>') || 'empty'}</div>
-      </div>`;
-    if (Object.keys(sd).length === 0) return debugHtml;
+    if (Object.keys(sd).length === 0) return '';
 
     const fmtN   = n => n ? Number(n).toLocaleString('en-IN') : '–';
     const fmtSPct = p => {
@@ -916,7 +903,7 @@ function buildEmailHTML() {
       }
     }
 
-    return debugHtml + `
+    return `
     <table width="100%" style="border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:14px;font-family:'Helvetica Neue',Arial,sans-serif">
       <tr style="background:#2d3748">
         <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.4px">Brand</th>
@@ -1159,10 +1146,16 @@ function buildEmailHTML2() {
     };
     const srchPill = (name) => {
       const d = (DATA.search||{})[name] || null;
-      if (!d || d.mtd_growth === null || d.mtd_growth === undefined) return '';
-      const n = parseFloat(d.mtd_growth), pct = (n>=0?'+':'')+n.toFixed(1)+'%';
+      if (!d) return '';
+      // Prefer MTD growth; fall back to WoW if MTD unavailable (e.g. no current-month data yet)
+      const hasMtd = d.mtd_growth !== null && d.mtd_growth !== undefined;
+      const hasWow = d.wow !== null && d.wow !== undefined;
+      if (!hasMtd && !hasWow) return '';
+      const val   = hasMtd ? d.mtd_growth : d.wow;
+      const label = hasMtd ? 'MTD' : 'WoW';
+      const n = parseFloat(val), pct = (n>=0?'+':'')+n.toFixed(1)+'%';
       const bg = n>=0 ? 'background:#c6f6d5;color:#276749' : 'background:#fed7d7;color:#c53030';
-      return `<span style="display:inline-block;${bg};font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:5px;white-space:nowrap">${name}: <b>${pct} MTD</b></span>`;
+      return `<span style="display:inline-block;${bg};font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:5px;white-space:nowrap">${name}: <b>${pct} ${label}</b></span>`;
     };
     const searchPills = [brand, ...(SRCH_COMPS[brand]||[])].map(srchPill).join('');
 
@@ -1819,90 +1812,33 @@ function refreshData() {
   }
 
   // ── Search Tracking CSV parser (gid=1473078428) ──────────────────────────────────
-  // Sheet: Category level — rows are brand/term names, columns are daily counts.
-  // Scans first 6 rows for the date-header row (handles title rows before headers).
-  // Stats computed later in processAllData with correct latestDate context.
+  // Sheet layout: col A = "Brand Searches", col G (index 6) = MTD% (pre-calculated in sheet).
+  // Reads only rows where col A ends with "Searches". No date math — sheet owns the calc.
   function parseSearchCsv(text) {
     const SBRAND = ['Be Bodywise','Little Joys','Man Matters','Chemist at Play','Wishcare','Gritzo','Kapiva'];
-    const lines  = text.replace(/\r/g,'').split('\n');
-    if (lines.length < 2) return { _raw:{}, _colDates:[], _hdrIdx:-1 };
+    const MTD_COL = 6; // col G (0-indexed)
+    const lines   = text.replace(/\r/g,'').split('\n');
+    const result  = {};
 
-    // ── Scan first 6 rows to find the date-header row ───────────────
-    // Handles sheets with title/meta rows above the actual date columns.
-    let hdrIdx = -1, colDates = null;
-    for (let li = 0; li < Math.min(6, lines.length); li++) {
-      const f = splitCsvRow(lines[li]).map(x => x.replace(/^"|"$/g,'').trim());
-      const cd = [null]; // col 0 = label column
-      let cnt = 0;
-      for (let i = 1; i < f.length; i++) {
-        const d = _tryParseSearchDate(f[i]);
-        cd.push(d);
-        if (d) cnt++;
-      }
-      if (cnt >= 5) { hdrIdx = li; colDates = cd; break; }
-    }
-    const hasHeaderDates = hdrIdx >= 0;
-    if (!colDates) colDates = [];
-
-    // Log first row content for diagnosis
-    console.log(`Search CSV: lines=${lines.length}, hdrIdx=${hdrIdx}, row0=[${lines[0]?.substring(0,120)}]`);
-
-    // ── Parse brand rows — collect ALL occurrences, pick best per brand ──────────
-    const allOccurrences = {}; // { brandName: [ [entries], [entries], ... ] }
-    const allRowNames = []; // every non-empty col-0 value for debug
-    const startLi = hdrIdx >= 0 ? hdrIdx + 1 : 1;
-    for (let li = startLi; li < lines.length; li++) {
-      const f = splitCsvRow(lines[li]);
-      if (!f || f.length < 3) continue;
+    for (const line of lines) {
+      const f = splitCsvRow(line);
+      if (!f || f.length <= MTD_COL) continue;
       const col0 = f[0].replace(/^"|"$/g,'').trim();
-      if (col0) allRowNames.push(col0);
-      if (f.length < 5) continue;
+      // Only process rows ending with "Searches"
+      if (!/searches?$/i.test(col0)) continue;
       const bRaw  = col0.replace(/\s*searches?$/i,'').trim();
       const bName = SBRAND.find(s => s.toLowerCase() === bRaw.toLowerCase());
       if (!bName) continue;
-      const entries = [];
-      for (let i = 1; i < f.length; i++) {
-        const s = f[i].replace(/^"|"$/g,'').trim();
-        if (s.includes('%') || s.includes('#')) continue;
-        const n = s === '' ? 0 : parseFloat(s.replace(/,/g,''));
-        entries.push({ date: (hasHeaderDates && colDates[i]) ? colDates[i] : null, val: isNaN(n) ? 0 : n });
-      }
-      if (!allOccurrences[bName]) allOccurrences[bName] = [];
-      allOccurrences[bName].push(entries);
+      const raw = f[MTD_COL].replace(/^"|"$/g,'').trim();
+      if (!raw || raw === '' || raw === '-') continue;
+      let pct = parseFloat(raw.replace('%','').replace(',','.'));
+      if (isNaN(pct)) continue;
+      // Convert decimal to % if value looks like a decimal (e.g. 0.038 → 3.8%)
+      if (!raw.includes('%') && Math.abs(pct) <= 1.5) pct = pct * 100;
+      result[bName] = { mtd_avg: null, mtd_growth: pct, wow: null };
     }
-    // Pick the occurrence with the most non-zero values (richest data)
-    const rawBrands = {};
-    for (const [bName, occs] of Object.entries(allOccurrences)) {
-      rawBrands[bName] = occs.reduce((best, cur) => {
-        const nonZero = arr => arr.filter(e => e.val > 0).length;
-        return nonZero(cur) > nonZero(best) ? cur : best;
-      }, occs[0]);
-    }
-    // Log everything useful: row names, matched brands, header info
-    console.log(`Search CSV: hdrIdx=${hdrIdx}, hasHeaderDates=${hasHeaderDates}`);
-    console.log(`Search CSV: ALL col-0 row names →`, allRowNames);
-    console.log(`Search CSV: matched SBRAND →`, Object.keys(rawBrands));
-    // Store debug info for display
-    window._searchDebug = { allRowNames, matched: Object.keys(rawBrands), hdrIdx, hasHeaderDates };
-    return { _raw: rawBrands, _hasHeaderDates: hasHeaderDates, _colDates: colDates };
-  }
-
-  // Helper: try to parse a date string from a spreadsheet header cell
-  function _tryParseSearchDate(s) {
-    if (!s || s.length < 3) return null;
-    // ISO: 2026-06-03 or 2026/06/03
-    let d = new Date(s.replace(/\//g,'-'));
-    if (!isNaN(d.getTime()) && d.getFullYear() > 2020 && d.getFullYear() < 2100) return d;
-    // DD-Mon or DD/Mon (e.g. "03-Jun" or "3/Jun" or "3 Jun")
-    const MONS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
-    const m1 = s.toLowerCase().match(/^(\d{1,2})[\/\-\s]([a-z]{3})/);
-    if (m1) { const mi=MONS.indexOf(m1[2].slice(0,3)); if(mi>=0){d=new Date(new Date().getFullYear(),mi,+m1[1]);if(!isNaN(d.getTime()))return d;} }
-    const m2 = s.toLowerCase().match(/^([a-z]{3})[\/\-\s](\d{1,2})/);
-    if (m2) { const mi=MONS.indexOf(m2[1].slice(0,3)); if(mi>=0){d=new Date(new Date().getFullYear(),mi,+m2[2]);if(!isNaN(d.getTime()))return d;} }
-    // DD/MM/YY or DD/MM/YYYY
-    const m3 = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
-    if (m3) { const y=+m3[3],yr=y<100?2000+y:y; d=new Date(yr,+m3[2]-1,+m3[1]); if(!isNaN(d.getTime())&&yr>2020)return d; }
-    return null;
+    console.log('Search parsed:', Object.entries(result).map(([k,v])=>`${k}=${v.mtd_growth?.toFixed(1)}%`).join(', '));
+    return result;
   }
 
 
@@ -2383,71 +2319,9 @@ function processAllData(nbJson, tgtJson, projByIdMap, fillRateData, searchData) 
   DATA.seven_day = sd;
   DATA.fill_rate = fillRateData || {};
 
-  // ── Compute search stats using correct date context from processAllData ──────
-  // parseSearchCsv returns raw {_raw, _hasHeaderDates} — stats computed here so
-  // currM/currY/prevM/prevY/mtdDays from latestDate are used (not system clock).
-  (function computeSearchStats() {
-    const rawObj = (searchData && searchData._raw) ? searchData._raw : {};
-    const hasDates = searchData && searchData._hasHeaderDates;
-    const result   = {};
-    for (const [brand, entries] of Object.entries(rawObj)) {
-      if (!entries || entries.length < 5) continue;
-      const mtdVals = [], lmtdVals = [];
-      let maxMtdDay = 0;
-
-      if (hasDates) {
-        // Use actual dates from header — works for oldest-to-newest column order
-        for (const e of entries) {
-          if (!e.date || e.val <= 0) continue; // skip 0/blank — data update is irregular
-          const eM=e.date.getMonth()+1, eY=e.date.getFullYear(), eD=e.date.getDate();
-          if (eM===currM && eY===currY) { mtdVals.push(e.val); if(eD>maxMtdDay) maxMtdDay=eD; }
-        }
-        // lmtdCap = maxMtdDay (NOT mtdDays fallback) — if no MTD search data exists yet,
-        // don't pull LMTD either; both stay empty → growth = null → no pill shown.
-        for (const e of entries) {
-          if (!e.date || e.val <= 0) continue;
-          const eM=e.date.getMonth()+1, eY=e.date.getFullYear(), eD=e.date.getDate();
-          if (eM===prevM && eY===prevY && eD<=maxMtdDay) lmtdVals.push(e.val);
-        }
-      } else {
-        // Fallback: no parseable header dates.
-        // Category level sheet is chronological left→right (oldest first, newest last).
-        // Anchor entry[n-1] (last entry) = latestDate, entry[n-2] = day before, etc.
-        const anchorTs = new Date(latestDate.getFullYear(), latestDate.getMonth(), latestDate.getDate()).getTime();
-        const n = entries.length;
-        for (let i=0; i<n; i++) {
-          const daysBack = n - 1 - i; // last entry = 0 days back (latestDate)
-          const d=new Date(anchorTs - daysBack*DAY_MS), val=entries[i].val||0;
-          if (val<=0) continue;
-          const dM=d.getMonth()+1, dY=d.getFullYear(), dD=d.getDate();
-          if (dM===currM && dY===currY) { mtdVals.push(val); if(dD>maxMtdDay) maxMtdDay=dD; }
-        }
-        for (let i=0; i<n; i++) {
-          const daysBack = n - 1 - i;
-          const d=new Date(anchorTs - daysBack*DAY_MS), val=entries[i].val||0;
-          if (val<=0) continue;
-          const dM=d.getMonth()+1, dY=d.getFullYear(), dD=d.getDate();
-          if (dM===prevM && dY===prevY && dD<=maxMtdDay) lmtdVals.push(val);
-        }
-      }
-
-      const mtdAvg  = mtdVals.length  ? mtdVals.reduce((s,x)=>s+x,0)/mtdVals.length   : 0;
-      const lmtdAvg = lmtdVals.length ? lmtdVals.reduce((s,x)=>s+x,0)/lmtdVals.length : 0;
-      // Need ≥1 non-zero MTD day (zeros already skipped — irregular update days ignored)
-      const mtdGrowth = (lmtdAvg>0 && mtdVals.length>=1) ? (mtdAvg-lmtdAvg)/lmtdAvg*100 : null;
-
-      // WoW: most-recent 7 non-zero values vs prior 7 (index-based, order-agnostic)
-      const nzVals = entries.filter(e=>(e.val||0)>0).slice(-14).map(e=>e.val);
-      const l7=nzVals.slice(-7), p7=nzVals.slice(-14,-7);
-      const l7a=l7.length?l7.reduce((s,x)=>s+x,0)/l7.length:0;
-      const p7a=p7.length?p7.reduce((s,x)=>s+x,0)/p7.length:0;
-      const wow = p7a>0 ? (l7a-p7a)/p7a*100 : null;
-
-      result[brand] = { mtd_avg:Math.round(mtdAvg), mtd_growth:mtdGrowth, wow };
-      console.log(`Search [${brand}]: mtdDays=${mtdVals.length} lmtdDays=${lmtdVals.length} mtdAvg=${mtdAvg.toFixed(0)} lmtdAvg=${lmtdAvg.toFixed(0)} growth=${mtdGrowth!==null?mtdGrowth.toFixed(1)+'%':'null'}`);
-    }
-    DATA.search = result;
-  })();
+  // parseSearchCsv now returns final {brand: {mtd_growth}} directly — just assign
+  DATA.search = (searchData && typeof searchData === 'object' && !searchData._raw)
+    ? searchData : {};
   const cName = MONTH_NAMES[currM-1];
   const pName = MONTH_NAMES[prevM-1];
   // as_of = the actual latest date from data (not system clock)
@@ -2481,26 +2355,6 @@ function processAllData(nbJson, tgtJson, projByIdMap, fillRateData, searchData) 
     `Data as of: ${asOfStr} · ${mtdDays} ${cName} days · LMTD = ${pName} 1–${mtdDays}`;
 
   reRenderAll();
-
-  // ── TEMP SEARCH DEBUG — inject visible panel so row names are readable ──────────
-  (function injectSearchDebug() {
-    const existing = document.getElementById('_srch_debug_panel');
-    if (existing) existing.remove();
-    const dbg = window._searchDebug || {};
-    const sd  = DATA.search || {};
-    const div = document.createElement('div');
-    div.id = '_srch_debug_panel';
-    div.style.cssText = 'margin:10px 28px;background:#1a1f2e;border:2px solid #f6ad55;border-radius:8px;padding:12px 16px;font-size:11px;font-family:monospace;z-index:9999';
-    div.innerHTML = `
-      <div style="font-weight:700;color:#f6ad55;margin-bottom:6px">🔍 Search Debug — delete after fixing</div>
-      <div style="color:#cbd5e0;margin-bottom:3px"><b>hdrIdx:</b> ${dbg.hdrIdx ?? '?'} &nbsp;|&nbsp; <b>hasHeaderDates:</b> ${dbg.hasHeaderDates ?? '?'}</div>
-      <div style="color:#cbd5e0;margin-bottom:3px"><b>Matched:</b> ${(dbg.matched||[]).join(', ') || 'none'}</div>
-      <div style="color:#cbd5e0;margin-bottom:3px"><b>DATA.search:</b> ${Object.entries(sd).map(([k,v])=>`${k}=${v.mtd_growth!==null?v.mtd_growth?.toFixed(1)+'%':'null'}`).join(', ') || 'empty'}</div>
-      <div style="color:#8b949e;margin-bottom:3px"><b>All row names from sheet col-0:</b></div>
-      <div style="color:#fbd38d;font-size:10px;background:#0d1117;padding:6px;border-radius:4px;max-height:150px;overflow:auto;white-space:pre">${(dbg.allRowNames||['(not loaded yet — refresh data)']).map(n=>`"${n}"`).join('\n')}</div>`;
-    const main = document.querySelector('.main') || document.body;
-    main.prepend(div);
-  })();
 }
 
 // ── RE-RENDER ALL TABS ─────────────────────────────────────────────
